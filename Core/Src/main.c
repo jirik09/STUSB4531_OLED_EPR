@@ -175,7 +175,7 @@ int main(void)
   /* --- Wait for PD negotiation, driven by PE_FSM register --- */
   {
       uint8_t last_pe = 0xFF;
-      uint32_t timeout_ms = HAL_GetTick() + 5000U;  /* 5 s max */
+      uint32_t timeout_ms = HAL_GetTick() + 2000U;  /* 2.5 s max */
       printf("STUSB4531: Waiting for PD negotiation (PE_FSM)...\r\n");
 
       while (HAL_GetTick() < timeout_ms)
