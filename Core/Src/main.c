@@ -121,11 +121,11 @@ int main(void)
   OLED_App_Init();
 
   uint8_t i;
-  for(i = 0; i < 10; i++) // Short delay before starting (for debugging)
+  for(i = 0; i < 12; i++) // Short delay before starting (for debugging)
   {
     ssd1306_FillCircle(i*10+10, 30, 1, 0x01);
     ssd1306_UpdateScreen();
-    HAL_Delay(100);
+    HAL_Delay(50);
   }
   
   // Initialize STUSB4531
@@ -246,21 +246,22 @@ int main(void)
 	      printf("ERROR: Failed to read comprehensive status (I2C error)\r\n");
 	  }
 	  
-	  // If PD capable, request and read source capabilities
+	  // If PD capable, read source capabilities (once per state change)
 	  if (stusb_status.attached && stusb_status.pd_capable)
 	  {
-	      // Request source capabilities
-	      printf("Requesting source capabilities...\r\n");
-	      STUSB4531_GetSourceCapabilities(&hi2c1);
-	      HAL_Delay(100); // Wait for response
-	      
-	      // Read the PDOs
+	      // Read the PDOs from DPM_SRC_PDO registers
 	      if (STUSB4531_ReadSourcePDOs(&hi2c1, &stusb_status) == HAL_OK)
 	      {
 	          // Select highest power PDO
-	          uint8_t selected = STUSB4531_SelectHighestPowerPDO(&stusb_status);
-	          
-	          // Print PDO information
+	          STUSB4531_SelectHighestPowerPDO(&stusb_status);
+
+	          // Populate negotiated PDO from comprehensive status
+	          if (comp_status.negotiated_pdo != 0)
+	          {
+	              STUSB4531_ParsePDO(comp_status.negotiated_pdo, &stusb_status.negotiated_pdo);
+	          }
+
+	          // Print PDO information when count changes
 	          static uint8_t last_num_pdos = 0;
 	          if (stusb_status.num_pdos != last_num_pdos)
 	          {
@@ -272,6 +273,12 @@ int main(void)
 	      {
 	          printf("Failed to read PDOs\r\n");
 	      }
+	  }
+	  else
+	  {
+	      // No PD contract: clear negotiated PDO
+	      stusb_status.negotiated_pdo.voltage_mv = 0;
+	      stusb_status.negotiated_pdo.current_ma = 0;
 	  }
 	  
 	  OLED_App_Update(&stusb_status);

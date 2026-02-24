@@ -34,11 +34,12 @@ void UART_App_PrintComprehensiveStatus(STUSB4531_ComprehensiveStatus_t *comp_sta
            (comp_status->cc_status >> 7) & 0x01,
            (comp_status->cc_status & 0x80) ? 2 : 1);
     
-    // PD Status
+    // PD Status (0x1B) - Note: this register does NOT contain contract/connected flags
+    // per the STUSB4531 datasheet. Actual bits: data_role(0), vconn_on(5), vconn_src(6)
     printf("PD Status (0x1B) = 0x%02X\r\n", comp_status->pd_status);
-    printf("  Bit 0 (CONNECTED): %d\r\n", (comp_status->pd_status >> 0) & 0x01);
-    printf("  Bit 1 (CONTRACT_ESTABLISHED): %d\r\n", (comp_status->pd_status >> 1) & 0x01);
-    printf("  Bit 2 (EXPLICIT_CONTRACT): %d\r\n", (comp_status->pd_status >> 2) & 0x01);
+    printf("  Bit 0 (DATA_ROLE): %s\r\n", (comp_status->pd_status & 0x01) ? "DFP" : "UFP");
+    printf("  Bit 5 (VCONN_ON): %d\r\n", (comp_status->pd_status >> 5) & 0x01);
+    printf("  Bit 6 (VCONN_SRC): %d\r\n", (comp_status->pd_status >> 6) & 0x01);
     
     // Type-C FSM
     printf("Type-C FSM (0x20) = 0x%02X ", comp_status->typec_fsm);
@@ -50,16 +51,22 @@ void UART_App_PrintComprehensiveStatus(STUSB4531_ComprehensiveStatus_t *comp_sta
         default: printf("(Unknown/Other)\r\n"); break;
     }
     
-    // Policy Engine FSM
+    // Policy Engine FSM (PE_FSM values per STUSB4531 datasheet)
     printf("PE FSM (0x21) = 0x%02X ", comp_status->pe_fsm);
     switch(comp_status->pe_fsm) {
-        case 0x00: printf("(PE_SNK_Startup)\r\n"); break;
-        case 0x01: printf("(PE_SNK_Discovery)\r\n"); break;
-        case 0x02: printf("(PE_SNK_Wait_for_Capabilities)\r\n"); break;
-        case 0x03: printf("(PE_SNK_Evaluate_Capability)\r\n"); break;
-        case 0x04: printf("(PE_SNK_Select_Capability)\r\n"); break;
-        case 0x05: printf("(PE_SNK_Transition_Sink)\r\n"); break;
-        case 0x06: printf("(PE_SNK_Ready)\r\n"); break;
+        case 0x00: printf("(PE_INIT)\r\n"); break;
+        case 0x01: printf("(PE_SOFT_RESET)\r\n"); break;
+        case 0x02: printf("(PE_HARD_RESET)\r\n"); break;
+        case 0x09: printf("(PE_SNK_STARTUP)\r\n"); break;
+        case 0x0A: printf("(PE_SNK_DISCOVERY)\r\n"); break;
+        case 0x0B: printf("(PE_SNK_WAIT_FOR_CAPABILITIES)\r\n"); break;
+        case 0x0C: printf("(PE_SNK_EVALUATE_CAPABILITIES)\r\n"); break;
+        case 0x0D: printf("(PE_SNK_SELECT_CAPABILITIES_1)\r\n"); break;
+        case 0x0E: printf("(PE_SNK_SELECT_CAPABILITIES_2)\r\n"); break;
+        case 0x0F: printf("(PE_SNK_TRANSITION_SINK)\r\n"); break;
+        case 0x10: printf("(PE_SNK_READY) <-- PD contract active\r\n"); break;
+        case 0x11: printf("(PE_SNK_GET_SOURCE_CAP)\r\n"); break;
+        case 0x12: printf("(PE_SNK_READY_SENDING) <-- PD contract active\r\n"); break;
         default: printf("(State 0x%02X)\r\n", comp_status->pe_fsm); break;
     }
     
@@ -104,17 +111,22 @@ void UART_App_PrintComprehensiveStatus(STUSB4531_ComprehensiveStatus_t *comp_sta
     }
     
     // PDO Information
-    printf("Number of PDOs (0x52) = %d\r\n", comp_status->num_pdo);
-    
-    // Display detailed PDO information if PDOs are available
-    if (comp_status->num_pdo > 0)
+    /* NUM_PDO (0x52): bits [6:4] = NUM_SRC_PDO (received from source)
+     *                  bits [1:0] = NUM_SNK_FIX_PDO (locally configured)  */
+    uint8_t num_src_pdo = (comp_status->num_pdo >> 4) & 0x07;
+    uint8_t num_snk_pdo = comp_status->num_pdo & 0x03;
+    printf("Number of PDOs (0x52) = 0x%02X  SRC_PDO=%d  SNK_FIX_PDO=%d\r\n",
+           comp_status->num_pdo, num_src_pdo, num_snk_pdo);
+
+    // Display detailed PDO information if source PDOs have been received
+    if (num_src_pdo > 0)
     {
-        STUSB4531_DisplayDetailedPDOs(&hi2c1, comp_status->num_pdo, 
+        STUSB4531_DisplayDetailedPDOs(&hi2c1, num_src_pdo,
                                      comp_status->pe_fsm, comp_status->pd_status);
     }
     
     // Display sink configuration registers
-    STUSB4531_DisplaySinkConfiguration(&hi2c1);
+    //STUSB4531_DisplaySinkConfiguration(&hi2c1);
     
     // RDO (Request Data Object)
     if (comp_status->rdo != 0)

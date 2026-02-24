@@ -32,27 +32,35 @@ HAL_StatusTypeDef STUSB4531_Init(I2C_HandleTypeDef *hi2c)
 
 /**
   * @brief Check if device is attached and PD capable
+  *
+  * @note  PD_STATUS (0x1B) does NOT contain contract/connected flags.
+  *        Its bits are: data_role(0), vconn_on(5), vconn_src(6).
+  *        PD contract status is determined via the PE FSM register (0x21).
+  *        PE_SNK_READY (0x10) and PE_SNK_READY_SENDING (0x12) indicate
+  *        an explicit PD contract is active.
   */
 HAL_StatusTypeDef STUSB4531_CheckStatus(I2C_HandleTypeDef *hi2c, STUSB4531_Status_t *status)
 {
     HAL_StatusTypeDef hal_status;
     uint8_t cc_status;
-    uint8_t pd_status;
-    
+    uint8_t pe_fsm;
+
     hal_status = STUSB4531_ReadReg(hi2c, STUSB4531_CC_STATUS_ADD, &cc_status);
-    
+
     if (hal_status == HAL_OK)
     {
         status->attached = (cc_status & (1 << STUSB4531_CC_STATUS_ATTACH_STATUS_SHIFT)) ? true : false;
         status->initialized = true;
-        
-        hal_status = STUSB4531_ReadReg(hi2c, STUSB4531_PD_STATUS_ADD, &pd_status);
+
+        /* PD contract is active when PE FSM is in SNK_READY or later states */
+        hal_status = STUSB4531_ReadReg(hi2c, STUSB4531_PE_FSM_ADD, &pe_fsm);
         if (hal_status == HAL_OK)
         {
-            status->pd_capable = (pd_status & 0x03) ? true : false;
+            /* 0x10 = PE_SNK_READY, 0x11 = PE_SNK_GET_SOURCE_CAP, 0x12 = PE_SNK_READY_SENDING */
+            status->pd_capable = (pe_fsm >= 0x10) ? true : false;
         }
     }
-    
+
     return hal_status;
 }
 
@@ -208,6 +216,11 @@ HAL_StatusTypeDef STUSB4531_ReadComprehensiveStatus(I2C_HandleTypeDef *hi2c, STU
     
     status = STUSB4531_ReadReg(hi2c, STUSB4531_NUM_PDO_ADD, &comp_status->num_pdo);
     if (status != HAL_OK) return status;
+
+    /* NUM_PDO register: bits [6:4] = NUM_SRC_PDO (received from source)
+     * bits [1:0] = NUM_SNK_FIX_PDO (locally configured sink PDOs)
+     * The comprehensive status stores the raw register; the display layer
+     * must extract bits [6:4] to get the source PDO count. */
     
     uint8_t rdo_data[4];
     status = STUSB4531_ReadRegs(hi2c, STUSB4531_DPM_RDO_ADD, rdo_data, 4);

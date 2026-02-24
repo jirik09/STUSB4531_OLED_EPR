@@ -202,16 +202,17 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
             case 0x02: printf("(PE_SNK_Wait_for_Capabilities)\r\n"); break;
             case 0x03: printf("(PE_SNK_Evaluate_Capability)\r\n"); break;
             case 0x04: printf("(PE_SNK_Select_Capability)\r\n"); break;
-            case 0x06: printf("(PE_SNK_Ready - Normal state) ✓\r\n"); break;
+            case 0x10: printf("(PE_SNK_Ready - Normal state) OK\r\n"); break;
+            case 0x12: printf("(PE_SNK_Ready_Sending) OK\r\n"); break;
             default: printf("(State 0x%02X)\r\n", pe_fsm); break;
         }
-        printf("  Expected: 0x06 (PE_SNK_Ready) for valid PDO data\r\n\r\n");
-        printf("  PD Status: 0x%02X\r\n", pd_status);
-        printf("    Bit 0 (CONNECTED): %d\r\n", (pd_status & 0x01) ? 1 : 0);
-        printf("    Bit 1 (CONTRACT_ESTABLISHED): %d %s\r\n", 
-               (pd_status & 0x02) ? 1 : 0,
-               (pd_status & 0x02) ? "✓" : "← Should be 1 for valid PDOs");
-        printf("    Bit 2 (EXPLICIT_CONTRACT): %d\r\n", (pd_status & 0x04) ? 1 : 0);
+        printf("  Expected: 0x10 (PE_SNK_READY) for valid PD contract\r\n\r\n");
+        /* PD_STATUS (0x1B): bits are data_role(0), vconn_on(5), vconn_src(6)
+         * Per STUSB4531 datasheet - NO contract/connected flags in this register. */
+        printf("  PD Status (0x1B) = 0x%02X\r\n", pd_status);
+        printf("    Bit 0 (DATA_ROLE): %s\r\n", (pd_status & 0x01) ? "DFP" : "UFP");
+        printf("    Bit 5 (VCONN_ON): %d\r\n", (pd_status >> 5) & 0x01);
+        printf("    Bit 6 (VCONN_SRC): %d\r\n", (pd_status >> 6) & 0x01);
     }
     
     printf("==============================================\r\n");

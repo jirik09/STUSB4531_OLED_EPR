@@ -50,6 +50,7 @@ typedef struct
     uint8_t num_pdos;
     STUSB4531_PDO_t pdos[STUSB4531_MAX_PDOS];
     uint8_t selected_pdo_index;
+    STUSB4531_PDO_t negotiated_pdo; /* The actively negotiated PDO (from DPM_SRC_PDO_NEGOCIATED) */
 } STUSB4531_Status_t;
 
 /**
