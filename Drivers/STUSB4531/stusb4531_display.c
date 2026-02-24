@@ -219,8 +219,8 @@ void STUSB4531_DisplaySinkConfiguration(I2C_HandleTypeDef *hi2c)
     {
         printf("--- DEVICE_PDP (0x51) = 0x%02X ---\r\n", reg_value);
         printf("  Power Data Path configuration\r\n");
-        printf("  Bits 7-0: PDP value = %d (× 0.25W = %.2fW max)\r\n\r\n", 
-               reg_value, reg_value * 0.25f);
+        printf("  Bits 7-0: PDP value = %d (× 0.25W = %d.%02dW max)\r\n\r\n",
+               reg_value, (reg_value * 25) / 100, (reg_value * 25) % 100);
     }
     
     if (STUSB4531_ReadReg(hi2c, STUSB4531_NUM_PDO_ADD, &reg_value) == HAL_OK)
@@ -327,8 +327,8 @@ void STUSB4531_DisplaySinkConfiguration(I2C_HandleTypeDef *hi2c)
     {
         printf("--- REQUEST_SRC_PDP (0x5C) = 0x%02X ---\r\n", reg_value);
         printf("  Requested Source PDP\r\n");
-        printf("  Bits 7-0: Requested PDP = %d (× 0.25W = %.2fW)\r\n\r\n", 
-               reg_value, reg_value * 0.25f);
+        printf("  Bits 7-0: Requested PDP = %d (× 0.25W = %d.%02dW)\r\n\r\n",
+               reg_value, (reg_value * 25) / 100, (reg_value * 25) % 100);
     }
 
     printf("==============================================\r\n");
