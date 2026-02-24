@@ -194,12 +194,6 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
     
     if (has_empty_pdos && num_pdos > 0)
     {
-        printf("\r\n⚠ TROUBLESHOOTING: NUM_PDO indicates %d PDOs but some are empty\r\n", num_pdos);
-        printf("Possible causes:\r\n");
-        printf("  1. USB-PD negotiation not complete yet\r\n");
-        printf("  2. Power supply not advertising all PDOs\r\n");
-        printf("  3. Need to wait for Source_Capabilities message\r\n");
-        printf("  4. Power supply may not support USB-PD properly\r\n\r\n");
         printf("Diagnostic Info:\r\n");
         printf("  Current PE FSM: 0x%02X ", pe_fsm);
         switch(pe_fsm) {
@@ -218,17 +212,6 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
                (pd_status & 0x02) ? 1 : 0,
                (pd_status & 0x02) ? "✓" : "← Should be 1 for valid PDOs");
         printf("    Bit 2 (EXPLICIT_CONTRACT): %d\r\n", (pd_status & 0x04) ? 1 : 0);
-        printf("\r\nRecommendation:\r\n");
-        if (pe_fsm != 0x06)
-        {
-            printf("  - Wait for PE FSM to reach PE_SNK_Ready (0x06)\r\n");
-            printf("  - Check if power supply supports USB-PD\r\n");
-        }
-        if (!(pd_status & 0x02))
-        {
-            printf("  - Wait for CONTRACT_ESTABLISHED bit to be set\r\n");
-        }
-        printf("  - Try a different USB-C cable or power supply\r\n");
     }
     
     printf("==============================================\r\n");
@@ -244,7 +227,6 @@ void STUSB4531_DisplaySinkConfiguration(I2C_HandleTypeDef *hi2c)
     uint8_t byte_low, byte_high;
     
     printf("\r\n========== SINK CONFIGURATION ==========\r\n");
-    printf("These registers show what power the SINK is configured to REQUEST\r\n\r\n");
     
     if (STUSB4531_ReadReg(hi2c, STUSB4531_DEVICE_PDP_ADD, &reg_value) == HAL_OK)
     {
@@ -361,10 +343,6 @@ void STUSB4531_DisplaySinkConfiguration(I2C_HandleTypeDef *hi2c)
         printf("  Bits 7-0: Requested PDP = %d (× 0.25W = %.2fW)\r\n\r\n", 
                reg_value, reg_value * 0.25f);
     }
-    
-    printf("==============================================\r\n");
-    printf("Note: These are SINK configuration registers showing what\r\n");
-    printf("      power levels this device REQUESTS from sources.\r\n");
-    printf("      Compare with DPM_SRC_PDO to see what source OFFERS.\r\n");
+
     printf("==============================================\r\n");
 }
