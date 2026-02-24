@@ -26,6 +26,7 @@
 #include "ssd1306.h"
 #include "stusb4531_api.h"
 #include "oled_app.h"
+#include "uart_app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -115,8 +116,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   // Initialize UART debug output
-  printf("\r\n=== STUSB4531 USB-PD Demo ===\r\n");
-  printf("Initializing...\r\n");
+  UART_App_Init();
 
   OLED_App_Init();
 
@@ -179,15 +179,7 @@ int main(void)
       printf("STUSB4531: Initialization FAILED (status=%d)\r\n", init_status);
   }
   
-  // Wait for STUSB4531 to stabilize after power-up
-  // The device needs time to complete autonomous negotiation
-  printf("Waiting for STUSB4531 to stabilize and complete autonomous negotiation...\r\n");
-  HAL_Delay(2000);  // 2 second delay for device to negotiate
-  
-  printf("Starting main loop with interrupt-based detection...\r\n");
-  printf("Alert pin (PB5) configured with pull-up and falling edge interrupt\r\n");
-  printf("Sink_EN pin (PB4) configured with pull-up\r\n");
-  printf("LED pin (PA0) mirrors Sink_EN status (active low)\r\n\r\n");
+
   
   /* USER CODE END 2 */
 
@@ -218,11 +210,7 @@ int main(void)
 	      uint8_t alert_status;
 	      if (STUSB4531_ReadAlertStatus(&hi2c1, &alert_status) == HAL_OK)
 	      {
-	          printf("\r\n*** ALERT Interrupt! Status = 0x%02X ***\r\n", alert_status);
-	          printf("  Bit 0 (PD/Type-C): %d\r\n", (alert_status & 0x01) ? 1 : 0);
-	          printf("  Bit 1 (Port Status): %d\r\n", (alert_status & 0x02) ? 1 : 0);
-	          printf("  Bit 2 (PD Msg Recv): %d\r\n", (alert_status & 0x04) ? 1 : 0);
-	          printf("  Bit 4 (HW Reset): %d\r\n", (alert_status & 0x10) ? 1 : 0);
+	          UART_App_PrintAlert(alert_status);
 	          
 	          // Clear the alerts
 	          STUSB4531_ClearAlerts(&hi2c1, alert_status);
@@ -246,119 +234,7 @@ int main(void)
 	          comp_status.pe_fsm != last_pe_fsm ||
 	          comp_status.alert_status != 0)
 	      {
-	          printf("\r\n========== COMPREHENSIVE STATUS ==========\r\n");
-	          
-	          // CC Status
-	          printf("CC Status (0x1A) = 0x%02X\r\n", comp_status.cc_status);
-	          printf("  Bit 0 (CC1 state): %d\r\n", (comp_status.cc_status >> 0) & 0x03);
-	          printf("  Bit 2 (CC2 state): %d\r\n", (comp_status.cc_status >> 2) & 0x03);
-	          printf("  Bit 4 (VCONN supply): %d\r\n", (comp_status.cc_status >> 4) & 0x03);
-	          printf("  Bit 6 (Attached): %d\r\n", (comp_status.cc_status >> 6) & 0x01);
-	          printf("  Bit 7 (Orientation): %d (CC%d)\r\n", 
-	                 (comp_status.cc_status >> 7) & 0x01,
-	                 (comp_status.cc_status & 0x80) ? 2 : 1);
-	          
-	          // PD Status
-	          printf("PD Status (0x1B) = 0x%02X\r\n", comp_status.pd_status);
-	          printf("  Bit 0 (CONNECTED): %d\r\n", (comp_status.pd_status >> 0) & 0x01);
-	          printf("  Bit 1 (CONTRACT_ESTABLISHED): %d\r\n", (comp_status.pd_status >> 1) & 0x01);
-	          printf("  Bit 2 (EXPLICIT_CONTRACT): %d\r\n", (comp_status.pd_status >> 2) & 0x01);
-	          
-	          // Type-C FSM
-	          printf("Type-C FSM (0x20) = 0x%02X ", comp_status.typec_fsm);
-	          switch(comp_status.typec_fsm) {
-	              case 0x00: printf("(Unattached.SNK)\r\n"); break;
-	              case 0x01: printf("(AttachWait.SNK)\r\n"); break;
-	              case 0x02: printf("(Attached.SNK)\r\n"); break;
-	              case 0x03: printf("(DebugAccessory.SNK)\r\n"); break;
-	              default: printf("(Unknown/Other)\r\n"); break;
-	          }
-	          
-	          // Policy Engine FSM
-	          printf("PE FSM (0x21) = 0x%02X ", comp_status.pe_fsm);
-	          switch(comp_status.pe_fsm) {
-	              case 0x00: printf("(PE_SNK_Startup)\r\n"); break;
-	              case 0x01: printf("(PE_SNK_Discovery)\r\n"); break;
-	              case 0x02: printf("(PE_SNK_Wait_for_Capabilities)\r\n"); break;
-	              case 0x03: printf("(PE_SNK_Evaluate_Capability)\r\n"); break;
-	              case 0x04: printf("(PE_SNK_Select_Capability)\r\n"); break;
-	              case 0x05: printf("(PE_SNK_Transition_Sink)\r\n"); break;
-	              case 0x06: printf("(PE_SNK_Ready)\r\n"); break;
-	              default: printf("(State 0x%02X)\r\n", comp_status.pe_fsm); break;
-	          }
-	          
-	          // VBUS FSM  
-	          printf("VBUS FSM (0x22) = 0x%02X ", comp_status.vbus_fsm);
-	          switch(comp_status.vbus_fsm) {
-	              case 0x00: printf("(vSafe0V)\r\n"); break;
-	              case 0x01: printf("(vSafe5V)\r\n"); break;
-	              case 0x02: printf("(VbusLow)\r\n"); break;
-	              case 0x03: printf("(VbusHigh)\r\n"); break;
-	              default: printf("(Unknown)\r\n"); break;
-	          }
-	          
-	          // VBUS Status
-	          printf("VBUS Status (0x19) = 0x%02X\r\n", comp_status.vbus_status);
-	          printf("  VBUS voltage: ~%d.%dV\r\n", 
-	                 (comp_status.vbus_status * 2) / 10,
-	                 (comp_status.vbus_status * 2) % 10);
-	          
-	          // Monitoring Status
-	          if (comp_status.monitoring_status != 0)
-	          {
-	              printf("Monitoring Status (0x16) = 0x%02X\r\n", comp_status.monitoring_status);
-	          }
-	          
-	          // HW Fault Status
-	          if (comp_status.hw_fault_status != 0)
-	          {
-	              printf("HW Fault Status (0x1D) = 0x%02X\r\n", comp_status.hw_fault_status);
-	              if (comp_status.hw_fault_status & 0x01) printf("  - VCONN OVP\r\n");
-	              if (comp_status.hw_fault_status & 0x02) printf("  - VCONN OCP\r\n");
-	          }
-	          
-	          // Alert Status (Don't clear here - only clear on interrupt)
-	          if (comp_status.alert_status != 0)
-	          {
-	              printf("Alert Status (0x10) = 0x%02X (will be cleared on interrupt)\r\n", comp_status.alert_status);
-	              if (comp_status.alert_status & 0x01) printf("  - PD/Type-C status changed\r\n");
-	              if (comp_status.alert_status & 0x02) printf("  - Port status changed\r\n");
-	              if (comp_status.alert_status & 0x04) printf("  - PD message received\r\n");
-	              if (comp_status.alert_status & 0x10) printf("  - Hardware reset detected\r\n");
-	          }
-	          
-	          // PDO Information
-	          printf("Number of PDOs (0x52) = %d\r\n", comp_status.num_pdo);
-	          
-	          // Display detailed PDO information if PDOs are available
-	          if (comp_status.num_pdo > 0)
-	          {
-	              STUSB4531_DisplayDetailedPDOs(&hi2c1, comp_status.num_pdo, 
-	                                           comp_status.pe_fsm, comp_status.pd_status);
-	          }
-	          
-	          // Display sink configuration registers
-	          STUSB4531_DisplaySinkConfiguration(&hi2c1);
-	          
-	          // RDO (Request Data Object)
-	          if (comp_status.rdo != 0)
-	          {
-	              printf("RDO (0xBC) = 0x%08lX\r\n", comp_status.rdo);
-	              uint8_t obj_pos = (comp_status.rdo >> 28) & 0x07;
-	              printf("  Requested PDO position: %d\r\n", obj_pos);
-	          }
-	          
-	          // Negotiated PDO
-	          if (comp_status.negotiated_pdo != 0)
-	          {
-	              printf("Negotiated PDO (0xC4) = 0x%08lX\r\n", comp_status.negotiated_pdo);
-	              STUSB4531_PDO_t nego_pdo;
-	              STUSB4531_ParsePDO(comp_status.negotiated_pdo, &nego_pdo);
-	              printf("  Voltage: %dmV, Current: %dmA, Power: %dmW\r\n",
-	                     nego_pdo.voltage_mv, nego_pdo.current_ma, nego_pdo.power_mw);
-	          }
-	          
-	          printf("==========================================\r\n");
+	          UART_App_PrintComprehensiveStatus(&comp_status);
 	          
 	          last_cc_status = comp_status.cc_status;
 	          last_typec_fsm = comp_status.typec_fsm;
@@ -388,19 +264,7 @@ int main(void)
 	          static uint8_t last_num_pdos = 0;
 	          if (stusb_status.num_pdos != last_num_pdos)
 	          {
-	              printf("\r\n--- PDO Information ---\r\n");
-	              printf("Number of PDOs: %d\r\n", stusb_status.num_pdos);
-	              for (uint8_t i = 0; i < stusb_status.num_pdos; i++)
-	              {
-	                  printf("PDO %d: %dmV %dmA (%dmW) %s\r\n",
-	                         i + 1,
-	                         stusb_status.pdos[i].voltage_mv,
-	                         stusb_status.pdos[i].current_ma,
-	                         stusb_status.pdos[i].power_mw,
-	                         (i == selected) ? "<-- SELECTED" : "");
-	              }
-	              printf("Selected PDO #%d with %dmW\r\n", selected + 1, 
-	                     stusb_status.pdos[selected].power_mw);
+	              UART_App_PrintPDOs(&stusb_status);
 	              last_num_pdos = stusb_status.num_pdos;
 	          }
 	      }
