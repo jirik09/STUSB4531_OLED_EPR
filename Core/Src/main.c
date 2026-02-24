@@ -22,11 +22,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ssd1306_fonts.h"		// i2c1 - 0x3C  - prohodit i2c1 s i2c2
-#include <stdio.h>
 #include "ssd1306.h"
 #include "stusb4531_api.h"
 #include "oled_app.h"
 #include "uart_app.h"
+#include "dbg_print.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -71,12 +71,7 @@ static void MX_ADC1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// UART printf support
-int _write(int file, char *ptr, int len)
-{
-    HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
-    return len;
-}
+/* dbg_print is initialised in main() via dbg_print_init(&huart2) */
 
 /* USER CODE END 0 */
 
@@ -115,36 +110,37 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
-  // Initialize UART debug output
+  // Initialize lightweight UART debug output (no stdio/printf)
+  dbg_print_init(&huart2);
   UART_App_Init();
 
   OLED_App_Init();
   HAL_Delay(500);
 
   // Initialize STUSB4531
-  printf("STUSB4531: Initializing...\r\n");
+  print_str("STUSB4531: Initializing...\r\n");
   
   HAL_StatusTypeDef init_status = STUSB4531_Init(&hi2c1);
   if (init_status == HAL_OK)
   {
       stusb_status.initialized = true;
-      printf("STUSB4531: Initialization OK\r\n");
+      print_str("STUSB4531: Initialization OK\r\n");
       
       // Read and display device ID
       uint8_t device_id = 0xFF;
       if (STUSB4531_ReadDeviceID(&hi2c1, &device_id) == HAL_OK)
       {
-          printf("STUSB4531: Device ID = 0x%02X\r\n", device_id);
+          print_str("STUSB4531: Device ID = 0x"); print_hex8(device_id); print_nl();
       }
       
       // Read initial alert status
       uint8_t initial_alert;
       if (STUSB4531_ReadAlertStatus(&hi2c1, &initial_alert) == HAL_OK)
       {
-          printf("STUSB4531: Initial Alert Status = 0x%02X\r\n", initial_alert);
+          print_str("STUSB4531: Initial Alert Status = 0x"); print_hex8(initial_alert); print_nl();
           if (initial_alert != 0)
           {
-              printf("  Clearing initial alerts...\r\n");
+              print_str("  Clearing initial alerts...\r\n");
               HAL_StatusTypeDef clear_status = STUSB4531_ClearAlerts(&hi2c1, initial_alert);
               if (clear_status == HAL_OK)
               {
@@ -153,30 +149,30 @@ int main(void)
                   uint8_t verify_alert;
                   if (STUSB4531_ReadAlertStatus(&hi2c1, &verify_alert) == HAL_OK)
                   {
-                      printf("  Alert status after clear: 0x%02X\r\n", verify_alert);
+                      print_str("  Alert status after clear: 0x"); print_hex8(verify_alert); print_nl();
                       if (verify_alert != 0)
                       {
-                          printf("  WARNING: Alerts persist after clearing\r\n");
+                          print_str("  WARNING: Alerts persist after clearing\r\n");
                       }
                   }
               }
               else
               {
-                  printf("  ERROR: Failed to clear alerts (status=%d)\r\n", clear_status);
+                  print_str("  ERROR: Failed to clear alerts (status="); print_number(clear_status); print_str(")\r\n");
               }
           }
       }
   }
   else
   {
-      printf("STUSB4531: Initialization FAILED (status=%d)\r\n", init_status);
+      print_str("STUSB4531: Initialization FAILED (status="); print_number(init_status); print_str(")\r\n");
   }
 
   /* --- Wait for PD negotiation, driven by PE_FSM register --- */
   {
       uint8_t last_pe = 0xFF;
       uint32_t timeout_ms = HAL_GetTick() + 2000U;  /* 2.5 s max */
-      printf("STUSB4531: Waiting for PD negotiation (PE_FSM)...\r\n");
+      print_str("STUSB4531: Waiting for PD negotiation (PE_FSM)...\r\n");
 
       while (HAL_GetTick() < timeout_ms)
       {
@@ -188,20 +184,20 @@ int main(void)
           {
               last_pe = pe_fsm;
               /* Print PE state name to UART */
-              printf("PE FSM: 0x%02X ", pe_fsm);
+              print_str("PE FSM: 0x"); print_hex8(pe_fsm); print_str(" ");
               switch (pe_fsm) {
-                  case 0x00: printf("(PE_INIT)\r\n");          break;
-                  case 0x09: printf("(SNK_STARTUP)\r\n");      break;
-                  case 0x0A: printf("(SNK_DISCOVER)\r\n");     break;
-                  case 0x0B: printf("(SNK_WAIT_CAP)\r\n");     break;
-                  case 0x0C: printf("(SNK_EVAL_CAP)\r\n");     break;
-                  case 0x0D: printf("(SNK_SEL_CAP)\r\n");      break;
-                  case 0x0E: printf("(SNK_SEL_CAP2)\r\n");     break;
-                  case 0x0F: printf("(SNK_TRANS)\r\n");        break;
-                  case 0x10: printf("(SNK_READY) -- done\r\n"); break;
-                  case 0x11: printf("(SNK_GET_CAP)\r\n");      break;
-                  case 0x12: printf("(SNK_READY_SEND) -- done\r\n"); break;
-                  default:   printf("(state 0x%02X)\r\n", pe_fsm); break;
+                  case 0x00: print_str("(PE_INIT)\r\n");          break;
+                  case 0x09: print_str("(SNK_STARTUP)\r\n");      break;
+                  case 0x0A: print_str("(SNK_DISCOVER)\r\n");     break;
+                  case 0x0B: print_str("(SNK_WAIT_CAP)\r\n");     break;
+                  case 0x0C: print_str("(SNK_EVAL_CAP)\r\n");     break;
+                  case 0x0D: print_str("(SNK_SEL_CAP)\r\n");      break;
+                  case 0x0E: print_str("(SNK_SEL_CAP2)\r\n");     break;
+                  case 0x0F: print_str("(SNK_TRANS)\r\n");        break;
+                  case 0x10: print_str("(SNK_READY) -- done\r\n"); break;
+                  case 0x11: print_str("(SNK_GET_CAP)\r\n");      break;
+                  case 0x12: print_str("(SNK_READY_SEND) -- done\r\n"); break;
+                  default:   print_str("(state 0x"); print_hex8(pe_fsm); print_str(")\r\n"); break;
               }
           }
 
@@ -215,7 +211,7 @@ int main(void)
       }
 
       if (HAL_GetTick() >= timeout_ms)
-          printf("STUSB4531: Negotiation timeout - continuing\r\n");
+          print_str("STUSB4531: Negotiation timeout - continuing\r\n");
   }
 
   HAL_Delay(500);  // Short delay before entering main loop
@@ -235,9 +231,11 @@ int main(void)
 		  // LED is active low, so invert the Sink_EN state
 		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, sink_en_state);
 		  last_sink_en = sink_en_state;
-		  printf("Sink_EN changed: %s (LED: %s)\r\n", 
-		         sink_en_state == GPIO_PIN_RESET ? "LOW" : "HIGH",
-		         sink_en_state == GPIO_PIN_RESET ? "ON" : "OFF");
+		  print_str("Sink_EN changed: ");
+		  print_str(sink_en_state == GPIO_PIN_RESET ? "LOW" : "HIGH");
+		  print_str(" (LED: ");
+		  print_str(sink_en_state == GPIO_PIN_RESET ? "ON" : "OFF");
+		  print_str(")\r\n");
 	  }
 	  
 	  // Check if alert interrupt occurred
@@ -282,7 +280,7 @@ int main(void)
 	  }
 	  else
 	  {
-	      printf("ERROR: Failed to read comprehensive status (I2C error)\r\n");
+	      print_str("ERROR: Failed to read comprehensive status (I2C error)\r\n");
 	  }
 	  
 	  // If PD capable, read source capabilities (once per state change)
@@ -310,7 +308,7 @@ int main(void)
 	      }
 	      else
 	      {
-	          printf("Failed to read PDOs\r\n");
+	          print_str("Failed to read PDOs\r\n");
 	      }
 	  }
 	  else

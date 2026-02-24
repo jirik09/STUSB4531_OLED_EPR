@@ -1,7 +1,7 @@
 #include "oled_app.h"
 #include "ssd1306.h"
 #include "ssd1306_fonts.h"
-#include <stdio.h>
+#include "dbg_print.h"
 
 #define SECOND_LINE_Y 20
 
@@ -78,9 +78,13 @@ void OLED_App_Update(STUSB4531_Status_t *status)
         if (status->cc_current_ma > 0)
         {
             /* Show Rp-advertised current on line 1, label on line 2 */
-            sprintf(buffer, "5V %d.%dA",
-                    status->cc_current_ma / 1000,
-                    (status->cc_current_ma % 1000) / 100);
+            {
+                uint8_t p = buf_cat_str(buffer, 0, "5V ");
+                p = buf_cat_int(buffer, p, (int32_t)(status->cc_current_ma / 1000));
+                p = buf_cat_str(buffer, p, ".");
+                p = buf_cat_int(buffer, p, (int32_t)((status->cc_current_ma % 1000) / 100));
+                buf_cat_str(buffer, p, "A");
+            }
             ssd1306_SetCursor(0, 0);
             ssd1306_WriteString(buffer, Font_11x18, 0x01);
             ssd1306_SetCursor(0, SECOND_LINE_Y);
@@ -113,22 +117,36 @@ void OLED_App_Update(STUSB4531_Status_t *status)
     // Display negotiated parameters (from actively negotiated PDO)
     if (status->pd_capable && status->negotiated_pdo.voltage_mv > 0)
     {
-        sprintf(buffer, "%dV %d.%dA",
-                status->negotiated_pdo.voltage_mv / 1000,
-                status->negotiated_pdo.current_ma / 1000,
-                (status->negotiated_pdo.current_ma % 1000) / 100);
+        {
+            uint8_t p = buf_cat_int(buffer, 0, (int32_t)(status->negotiated_pdo.voltage_mv / 1000));
+            p = buf_cat_str(buffer, p, "V ");
+            p = buf_cat_int(buffer, p, (int32_t)(status->negotiated_pdo.current_ma / 1000));
+            p = buf_cat_str(buffer, p, ".");
+            p = buf_cat_int(buffer, p, (int32_t)((status->negotiated_pdo.current_ma % 1000) / 100));
+            buf_cat_str(buffer, p, "A");
+        }
         ssd1306_SetCursor(0, 0);
         ssd1306_WriteString(buffer, Font_11x18, 0x01);
         ssd1306_SetCursor(0, SECOND_LINE_Y);
-        ssd1306_WriteString("USB-PD ok:Charging", Font_7x10, 0x01);
+        if(status->negotiated_pdo.voltage_mv >15000){
+            ssd1306_WriteString("Charging", Font_7x10, 0x01);
+        }
+        else{
+            ssd1306_WriteString("Too low voltage", Font_7x10, 0x01);
+        }
+        
     }
     else if (status->num_pdos > 0)
     {
         uint8_t sel = status->selected_pdo_index;
-        sprintf(buffer, "%dV %d.%dA",
-                status->pdos[sel].voltage_mv / 1000,
-                status->pdos[sel].current_ma / 1000,
-                (status->pdos[sel].current_ma % 1000) / 100);
+        {
+            uint8_t p = buf_cat_int(buffer, 0, (int32_t)(status->pdos[sel].voltage_mv / 1000));
+            p = buf_cat_str(buffer, p, "V ");
+            p = buf_cat_int(buffer, p, (int32_t)(status->pdos[sel].current_ma / 1000));
+            p = buf_cat_str(buffer, p, ".");
+            p = buf_cat_int(buffer, p, (int32_t)((status->pdos[sel].current_ma % 1000) / 100));
+            buf_cat_str(buffer, p, "A");
+        }
         ssd1306_SetCursor(0, 0);
         ssd1306_WriteString(buffer, Font_11x18, 0x01);
                 ssd1306_SetCursor(0, SECOND_LINE_Y);

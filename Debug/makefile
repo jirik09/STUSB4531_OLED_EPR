@@ -66,7 +66,7 @@ main-build: C071_project.elf secondary-outputs
 
 # Tool invocations
 C071_project.elf C071_project.map: $(OBJS) $(USER_OBJS) C:\Git\STUSB4531_OLED_EPR\STM32C071G8UX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "C071_project.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Git\STUSB4531_OLED_EPR\STM32C071G8UX_FLASH.ld" --specs=nosys.specs -Wl,-Map="C071_project.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+	arm-none-eabi-gcc -o "C071_project.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0plus -T"C:\Git\STUSB4531_OLED_EPR\STM32C071G8UX_FLASH.ld" --specs=nosys.specs -Wl,-Map="C071_project.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
