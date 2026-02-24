@@ -190,16 +190,16 @@ int main(void)
   printf("\r\n=== STUSB4531 USB-PD Demo ===\r\n");
   printf("Initializing...\r\n");
 
-  // OLED disabled for STUSB4531 debugging
-  // ssd1306_Init();
-  // ssd1306_Fill(0x00);
-  // ssd1306_SetCursor(10,20);
-  // ssd1306_WriteString("USB-PD Demo", Font_11x18, 0x01);
-  // ssd1306_UpdateScreen();
+   //OLED disabled for STUSB4531 debugging
+   ssd1306_Init();
+   ssd1306_Fill(0x00);
+   ssd1306_SetCursor(10,10);
+   ssd1306_WriteString("USB-PD Demo", Font_11x18, 0x01);
+   ssd1306_UpdateScreen();
   
   // Initialize STUSB4531
   printf("STUSB4531: Initializing...\r\n");
-  
+  /*
   HAL_StatusTypeDef init_status = STUSB4531_Init(&hi2c1);
   if (init_status == HAL_OK)
   {
@@ -257,7 +257,7 @@ int main(void)
   printf("Alert pin (PB5) configured with pull-up and falling edge interrupt\r\n");
   printf("Sink_EN pin (PB4) configured with pull-up\r\n");
   printf("LED pin (PA0) mirrors Sink_EN status (active low)\r\n\r\n");
-  
+  */
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -266,7 +266,7 @@ int main(void)
   
   while (1)
   {
-	  // Update LED (PA0) to mirror Sink_EN (PB4) - LED is active low
+	/*  // Update LED (PA0) to mirror Sink_EN (PB4) - LED is active low
 	  GPIO_PinState sink_en_state = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4);
 	  if (sink_en_state != last_sink_en)
 	  {
@@ -481,7 +481,7 @@ int main(void)
 	  
 	  // Display PDO information on OLED (disabled for debugging)
 	  // Display_PDO_Info();
-	  
+	  */
 	  HAL_Delay(500); // Short delay for loop (was 2000ms)
     /* USER CODE END WHILE */
 
