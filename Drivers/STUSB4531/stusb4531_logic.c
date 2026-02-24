@@ -116,6 +116,7 @@ HAL_StatusTypeDef STUSB4531_ReadSourcePDOs(I2C_HandleTypeDef *hi2c, STUSB4531_St
     }
     
     uint8_t num_pdos = 0;
+    status->epr_ready = false;
     for (uint8_t i = 0; i < STUSB4531_MAX_PDOS; i++)
     {
         uint8_t offset = i * 4;
@@ -124,6 +125,15 @@ HAL_StatusTypeDef STUSB4531_ReadSourcePDOs(I2C_HandleTypeDef *hi2c, STUSB4531_St
                           (pdo_data[offset + 2] << 16) | 
                           (pdo_data[offset + 3] << 24);
         
+        if (i == 0 && raw_pdo != 0)
+        {
+            // Check EPR Mode Capable bit (bit 23) in PDO1
+            if (raw_pdo & (1 << 23))
+            {
+                status->epr_ready = true;
+            }
+        }
+
         if (raw_pdo != 0)
         {
             STUSB4531_ParsePDO(raw_pdo, &status->pdos[num_pdos]);

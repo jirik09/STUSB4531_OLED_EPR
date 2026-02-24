@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include "ssd1306.h"
 #include "stusb4531_api.h"
+#include "oled_app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,7 +65,6 @@ static void MX_USART2_UART_Init(void);
 static void MX_USB_PCD_Init(void);
 static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
-void Display_PDO_Info(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -75,78 +75,6 @@ int _write(int file, char *ptr, int len)
 {
     HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
     return len;
-}
-
-/**
- * @brief Display PDO information on OLED
- */
-void Display_PDO_Info(void)
-{
-    char buffer[32];
-    uint8_t line = 0;
-    
-    ssd1306_Fill(0x00);
-    ssd1306_SetCursor(0, line);
-    
-    if (!stusb_status.initialized)
-    {
-        ssd1306_WriteString("STUSB Init...", Font_7x10, 0x01);
-        ssd1306_UpdateScreen();
-        return;
-    }
-    
-    if (!stusb_status.attached)
-    {
-        ssd1306_WriteString("No USB-C", Font_7x10, 0x01);
-        ssd1306_UpdateScreen();
-        return;
-    }
-    
-    if (!stusb_status.pd_capable)
-    {
-        ssd1306_WriteString("Not PD", Font_7x10, 0x01);
-        ssd1306_UpdateScreen();
-        return;
-    }
-    
-    // Display title with PDO count and max power on same line
-    if (stusb_status.num_pdos > 0)
-    {
-        sprintf(buffer, "PDOs:%d Max:%dW", 
-                stusb_status.num_pdos,
-                stusb_status.pdos[stusb_status.selected_pdo_index].power_mw / 1000);
-    }
-    else
-    {
-        sprintf(buffer, "PDOs: 0");
-    }
-    ssd1306_WriteString(buffer, Font_7x10, 0x01);
-    line += 11;
-    
-    // Display each PDO (maximum 2 for 32px display)
-    for (uint8_t i = 0; i < stusb_status.num_pdos && i < MAX_DISPLAY_PDOS; i++)
-    {
-        ssd1306_SetCursor(0, line);
-        
-        if (i == stusb_status.selected_pdo_index)
-        {
-            sprintf(buffer, ">%d:%dV %dmA", 
-                    i + 1,
-                    stusb_status.pdos[i].voltage_mv / 1000,
-                    stusb_status.pdos[i].current_ma);
-        }
-        else
-        {
-            sprintf(buffer, " %d:%dV %dmA", 
-                    i + 1,
-                    stusb_status.pdos[i].voltage_mv / 1000,
-                    stusb_status.pdos[i].current_ma);
-        }
-        ssd1306_WriteString(buffer, Font_7x10, 0x01);
-        line += 11;
-    }
-    
-    ssd1306_UpdateScreen();
 }
 
 /* USER CODE END 0 */
@@ -190,14 +118,7 @@ int main(void)
   printf("\r\n=== STUSB4531 USB-PD Demo ===\r\n");
   printf("Initializing...\r\n");
 
-  //OLED disabled for STUSB4531 debugging
-  ssd1306_Init();
-  ssd1306_Fill(0x00);
-  ssd1306_SetCursor(0,0);
-  ssd1306_WriteString("STUSB4531", Font_11x18, 0x01);
-  ssd1306_SetCursor(0,18);
-  ssd1306_WriteString("USB-PD negotiation", Font_7x10, 0x01);
-  ssd1306_UpdateScreen();
+  OLED_App_Init();
 
   uint8_t i;
   for(i = 0; i < 10; i++) // Short delay before starting (for debugging)
@@ -209,7 +130,7 @@ int main(void)
   
   // Initialize STUSB4531
   printf("STUSB4531: Initializing...\r\n");
-  /*
+  
   HAL_StatusTypeDef init_status = STUSB4531_Init(&hi2c1);
   if (init_status == HAL_OK)
   {
@@ -267,14 +188,15 @@ int main(void)
   printf("Alert pin (PB5) configured with pull-up and falling edge interrupt\r\n");
   printf("Sink_EN pin (PB4) configured with pull-up\r\n");
   printf("LED pin (PA0) mirrors Sink_EN status (active low)\r\n\r\n");
-  */
+  
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   GPIO_PinState last_sink_en = GPIO_PIN_SET;
   
-
+  while (1)
+  {
 	  // Update LED (PA0) to mirror Sink_EN (PB4) - LED is active low
 	  GPIO_PinState sink_en_state = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4);
 	  if (sink_en_state != last_sink_en)
@@ -488,10 +410,8 @@ int main(void)
 	      }
 	  }
 	  
-	  // Display PDO information on OLED (disabled for debugging)
-	  // Display_PDO_Info();
-	    while (1)
-  {
+	  OLED_App_Update(&stusb_status);
+	  
 	  HAL_Delay(500); // Short delay for loop (was 2000ms)
     /* USER CODE END WHILE */
 

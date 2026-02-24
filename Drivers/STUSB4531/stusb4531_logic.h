@@ -46,6 +46,7 @@ typedef struct
     bool initialized;
     bool attached;
     bool pd_capable;
+    bool epr_ready;
     uint8_t num_pdos;
     STUSB4531_PDO_t pdos[STUSB4531_MAX_PDOS];
     uint8_t selected_pdo_index;
