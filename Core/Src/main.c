@@ -119,6 +119,7 @@ int main(void)
   UART_App_Init();
 
   OLED_App_Init();
+  HAL_Delay(500);
 
   // Initialize STUSB4531
   printf("STUSB4531: Initializing...\r\n");
@@ -170,9 +171,55 @@ int main(void)
   {
       printf("STUSB4531: Initialization FAILED (status=%d)\r\n", init_status);
   }
-  
 
-  
+  /* --- Wait for PD negotiation, driven by PE_FSM register --- */
+  {
+      uint8_t last_pe = 0xFF;
+      uint32_t timeout_ms = HAL_GetTick() + 5000U;  /* 5 s max */
+      printf("STUSB4531: Waiting for PD negotiation (PE_FSM)...\r\n");
+
+      while (HAL_GetTick() < timeout_ms)
+      {
+          uint8_t pe_fsm;
+          if (STUSB4531_ReadReg(&hi2c1, STUSB4531_PE_FSM_ADD, &pe_fsm) != HAL_OK)
+              break;
+
+          if (pe_fsm != last_pe)
+          {
+              last_pe = pe_fsm;
+              /* Print PE state name to UART */
+              printf("PE FSM: 0x%02X ", pe_fsm);
+              switch (pe_fsm) {
+                  case 0x00: printf("(PE_INIT)\r\n");          break;
+                  case 0x09: printf("(SNK_STARTUP)\r\n");      break;
+                  case 0x0A: printf("(SNK_DISCOVER)\r\n");     break;
+                  case 0x0B: printf("(SNK_WAIT_CAP)\r\n");     break;
+                  case 0x0C: printf("(SNK_EVAL_CAP)\r\n");     break;
+                  case 0x0D: printf("(SNK_SEL_CAP)\r\n");      break;
+                  case 0x0E: printf("(SNK_SEL_CAP2)\r\n");     break;
+                  case 0x0F: printf("(SNK_TRANS)\r\n");        break;
+                  case 0x10: printf("(SNK_READY) -- done\r\n"); break;
+                  case 0x11: printf("(SNK_GET_CAP)\r\n");      break;
+                  case 0x12: printf("(SNK_READY_SEND) -- done\r\n"); break;
+                  default:   printf("(state 0x%02X)\r\n", pe_fsm); break;
+              }
+          }
+
+          OLED_App_ShowNegotiating(pe_fsm);
+
+          /* PE_SNK_READY (0x10) or PE_SNK_READY_SENDING (0x12) = negotiated */
+          if (pe_fsm >= 0x10)
+              break;
+
+          HAL_Delay(200U);
+      }
+
+      if (HAL_GetTick() >= timeout_ms)
+          printf("STUSB4531: Negotiation timeout - continuing\r\n");
+  }
+
+  HAL_Delay(500);  // Short delay before entering main loop
+
   /* USER CODE END 2 */
 
   /* Infinite loop */

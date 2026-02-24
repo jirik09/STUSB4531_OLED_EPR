@@ -32,9 +32,6 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
     uint8_t pps_max_i;
     
     printf("\r\n========== DETAILED PDO INFORMATION ==========\r\n");
-    printf("Reading from DPM_SRC_PDO registers (0xA0-0xB8)\r\n");
-    printf("Note: These registers store PDOs received from the power supply\r\n");
-    printf("      They are populated automatically during USB-PD negotiation\r\n\r\n");
     printf("Number of valid PDOs: %d\r\n\r\n", num_pdos);
     
     for (uint8_t i = 0; i < STUSB4531_MAX_PDOS; i++)
@@ -61,24 +58,20 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
                 }
                 
                 uint8_t pdo_type = (raw_pdo >> 30) & 0x03;
-                printf("Bits 31-30 (PDO Type): %d (", pdo_type);
-                
                 switch(pdo_type)
                 {
                     case 0x00:
                     {
-                        printf("Fixed Supply)\r\n");
+                        printf("PDO Type: Fixed Supply\r\n");
                         
                         voltage_raw = (raw_pdo >> 10) & 0x3FF;
                         voltage_mv = voltage_raw * 50;
-                        printf("Bits 10-19 (Voltage): 0x%03X = %d units × 50mV = %dmV (%d.%dV)\r\n",
-                               voltage_raw, voltage_raw, voltage_mv, 
+                        printf("  Voltage: %d.%dV\r\n",
                                voltage_mv / 1000, (voltage_mv % 1000) / 100);
                         
                         current_raw = raw_pdo & 0x3FF;
                         current_ma = current_raw * 10;
-                        printf("Bits 0-9 (Max Current): 0x%03X = %d units × 10mA = %dmA (%d.%dA)\r\n",
-                               current_raw, current_raw, current_ma,
+                        printf("  Current: %d.%dA\r\n",
                                current_ma / 1000, (current_ma % 1000) / 100);
                         
                         /*power_mw = ((uint32_t)voltage_mv * current_ma) / 1000;
@@ -103,7 +96,7 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
                         
                     case 0x01:
                     {
-                        printf("Battery Supply)\r\n");
+                        printf("PDO Type: Battery Supply\r\n");
                         
                         /*max_voltage_raw = (raw_pdo >> 20) & 0x3FF;
                         max_voltage_mv = max_voltage_raw * 50;
@@ -124,43 +117,38 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
                         
                     case 0x02:
                     {
-                        printf("Variable Supply)\r\n");
+                        printf("PDO Type: Variable Supply\r\n");
                         
                         max_voltage_raw = (raw_pdo >> 20) & 0x3FF;
                         max_voltage_mv = max_voltage_raw * 50;
-                        printf("Bits 20-29 (Max Voltage): 0x%03X = %d units × 50mV = %dmV\r\n",
-                               max_voltage_raw, max_voltage_raw, max_voltage_mv);
+                        printf("  Max Voltage: %dmV\r\n", max_voltage_mv);
                         
                         min_voltage_raw = (raw_pdo >> 10) & 0x3FF;
                         min_voltage_mv = min_voltage_raw * 50;
-                        printf("Bits 10-19 (Min Voltage): 0x%03X = %d units × 50mV = %dmV\r\n",
-                               min_voltage_raw, min_voltage_raw, min_voltage_mv);
+                        printf("  Min Voltage: %dmV\r\n", min_voltage_mv);
                         
                         current_raw = raw_pdo & 0x3FF;
                         current_ma = current_raw * 10;
-                        printf("Bits 0-9 (Max Current): 0x%03X = %d units × 10mA = %dmA\r\n",
-                               current_raw, current_raw, current_ma);
+                        printf("  Max Current: %d.%dA\r\n", current_ma / 1000, (current_ma % 1000) / 100);
                         break;
                     }
                         
                     case 0x03:
                     {
-                        printf("Augmented/PPS)\r\n");
+                        printf("PDO Type: Augmented/PPS\r\n");
                         
                         apdo_type = (raw_pdo >> 28) & 0x03;
-                        printf("Bits 29-28 (APDO Type): %d\r\n", apdo_type);
+                        printf("  APDO Type: %d\r\n", apdo_type);
                         
                         pps_max_v = (raw_pdo >> 17) & 0xFF;
-                        printf("Bits 17-24 (Max Voltage): 0x%02X = %d units × 100mV = %dmV\r\n",
-                               pps_max_v, pps_max_v, pps_max_v * 100);
+                        printf("  Max Voltage: %dmV\r\n", pps_max_v * 100);
                         
                         pps_min_v = (raw_pdo >> 8) & 0xFF;
-                        printf("Bits 8-15 (Min Voltage): 0x%02X = %d units × 100mV = %dmV\r\n",
-                               pps_min_v, pps_min_v, pps_min_v * 100);
+                        printf("  Min Voltage: %dmV\r\n", pps_min_v * 100);
                         
                         pps_max_i = raw_pdo & 0x7F;
-                        printf("Bits 0-6 (Max Current): 0x%02X = %d units × 50mA = %dmA\r\n",
-                               pps_max_i, pps_max_i, pps_max_i * 50);
+                        printf("  Max Current: %d.%dA\r\n",
+                               (pps_max_i * 50) / 1000, ((pps_max_i * 50) % 1000) / 100);
                         break;
                     }
                 }
@@ -209,10 +197,8 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
         printf("  Expected: 0x10 (PE_SNK_READY) for valid PD contract\r\n\r\n");
         /* PD_STATUS (0x1B): bits are data_role(0), vconn_on(5), vconn_src(6)
          * Per STUSB4531 datasheet - NO contract/connected flags in this register. */
-        printf("  PD Status (0x1B) = 0x%02X\r\n", pd_status);
-        printf("    Bit 0 (DATA_ROLE): %s\r\n", (pd_status & 0x01) ? "DFP" : "UFP");
-        printf("    Bit 5 (VCONN_ON): %d\r\n", (pd_status >> 5) & 0x01);
-        printf("    Bit 6 (VCONN_SRC): %d\r\n", (pd_status >> 6) & 0x01);
+        printf("  PD Status (0x1B) = 0x%02X  %s\r\n",
+               pd_status, (pd_status & 0x01) ? "DFP" : "UFP");
     }
     
     printf("==============================================\r\n");

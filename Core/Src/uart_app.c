@@ -14,32 +14,35 @@ void UART_App_Init(void)
 void UART_App_PrintAlert(uint8_t alert_status)
 {
     printf("\r\n*** ALERT Interrupt! Status = 0x%02X ***\r\n", alert_status);
-    printf("  Bit 0 (PD/Type-C): %d\r\n", (alert_status & 0x01) ? 1 : 0);
-    printf("  Bit 1 (Port Status): %d\r\n", (alert_status & 0x02) ? 1 : 0);
-    printf("  Bit 2 (PD Msg Recv): %d\r\n", (alert_status & 0x04) ? 1 : 0);
-    printf("  Bit 4 (HW Reset): %d\r\n", (alert_status & 0x10) ? 1 : 0);
 }
 
 void UART_App_PrintComprehensiveStatus(STUSB4531_ComprehensiveStatus_t *comp_status)
 {
     printf("\r\n========== COMPREHENSIVE STATUS ==========\r\n");
     
-    // CC Status
-    printf("CC Status (0x1A) = 0x%02X\r\n", comp_status->cc_status);
-    printf("  Bit 0 (CC1 state): %d\r\n", (comp_status->cc_status >> 0) & 0x03);
-    printf("  Bit 2 (CC2 state): %d\r\n", (comp_status->cc_status >> 2) & 0x03);
-    printf("  Bit 4 (VCONN supply): %d\r\n", (comp_status->cc_status >> 4) & 0x03);
-    printf("  Bit 6 (Attached): %d\r\n", (comp_status->cc_status >> 6) & 0x01);
-    printf("  Bit 7 (Orientation): %d (CC%d)\r\n", 
-           (comp_status->cc_status >> 7) & 0x01,
-           (comp_status->cc_status & 0x80) ? 2 : 1);
+    // CC Status - decode Rp advertised current from active CC line
+    {
+        static const uint16_t rp_ma[4] = {0, 900, 1500, 3000};
+        uint8_t orient = (comp_status->cc_status >> 7) & 0x01;
+        uint8_t cc_state = orient ? ((comp_status->cc_status >> 2) & 0x03)
+                                  : (comp_status->cc_status & 0x03);
+        uint16_t rp_current = rp_ma[cc_state];
+        uint8_t attached = (comp_status->cc_status >> 6) & 0x01;
+        if (attached && rp_current > 0)
+            printf("CC Status (0x1A) = 0x%02X  CC%d Attached  Rp=%d.%dA\r\n",
+                   comp_status->cc_status, orient ? 2 : 1,
+                   rp_current / 1000, (rp_current % 1000) / 100);
+        else
+            printf("CC Status (0x1A) = 0x%02X  CC%d %s\r\n",
+                   comp_status->cc_status, orient ? 2 : 1,
+                   attached ? "Attached" : "Detached");
+    }
     
     // PD Status (0x1B) - Note: this register does NOT contain contract/connected flags
     // per the STUSB4531 datasheet. Actual bits: data_role(0), vconn_on(5), vconn_src(6)
-    printf("PD Status (0x1B) = 0x%02X\r\n", comp_status->pd_status);
-    printf("  Bit 0 (DATA_ROLE): %s\r\n", (comp_status->pd_status & 0x01) ? "DFP" : "UFP");
-    printf("  Bit 5 (VCONN_ON): %d\r\n", (comp_status->pd_status >> 5) & 0x01);
-    printf("  Bit 6 (VCONN_SRC): %d\r\n", (comp_status->pd_status >> 6) & 0x01);
+    printf("PD Status (0x1B) = 0x%02X  %s\r\n",
+           comp_status->pd_status,
+           (comp_status->pd_status & 0x01) ? "DFP" : "UFP");
     
     // Type-C FSM
     printf("Type-C FSM (0x20) = 0x%02X ", comp_status->typec_fsm);
@@ -81,8 +84,8 @@ void UART_App_PrintComprehensiveStatus(STUSB4531_ComprehensiveStatus_t *comp_sta
     }
     
     // VBUS Status
-    printf("VBUS Status (0x19) = 0x%02X\r\n", comp_status->vbus_status);
-    printf("  VBUS voltage: ~%d.%dV\r\n", 
+    printf("VBUS Status (0x19) = 0x%02X  ~%d.%dV\r\n",
+           comp_status->vbus_status,
            (comp_status->vbus_status * 2) / 10,
            (comp_status->vbus_status * 2) % 10);
     
@@ -142,8 +145,10 @@ void UART_App_PrintComprehensiveStatus(STUSB4531_ComprehensiveStatus_t *comp_sta
         printf("Negotiated PDO (0xC4) = 0x%08lX\r\n", comp_status->negotiated_pdo);
         STUSB4531_PDO_t nego_pdo;
         STUSB4531_ParsePDO(comp_status->negotiated_pdo, &nego_pdo);
-        printf("  Voltage: %dmV, Current: %dmA, Power: %ldmW\r\n",
-               nego_pdo.voltage_mv, nego_pdo.current_ma, nego_pdo.power_mw);
+        printf("  %d.%dV  %d.%dA  %ldmW\r\n",
+               nego_pdo.voltage_mv / 1000, (nego_pdo.voltage_mv % 1000) / 100,
+               nego_pdo.current_ma / 1000, (nego_pdo.current_ma % 1000) / 100,
+               nego_pdo.power_mw);
     }
     
     printf("==========================================\r\n");
@@ -155,10 +160,10 @@ void UART_App_PrintPDOs(STUSB4531_Status_t *status)
     printf("Number of PDOs: %d\r\n", status->num_pdos);
     for (uint8_t i = 0; i < status->num_pdos; i++)
     {
-        printf("PDO %d: %dmV %dmA (%ldmW) %s\r\n",
+        printf("PDO %d: %d.%dV %d.%dA (%ldmW) %s\r\n",
                i + 1,
-               status->pdos[i].voltage_mv,
-               status->pdos[i].current_ma,
+               status->pdos[i].voltage_mv / 1000, (status->pdos[i].voltage_mv % 1000) / 100,
+               status->pdos[i].current_ma / 1000, (status->pdos[i].current_ma % 1000) / 100,
                status->pdos[i].power_mw,
                (i == status->selected_pdo_index) ? "<-- SELECTED" : "");
     }

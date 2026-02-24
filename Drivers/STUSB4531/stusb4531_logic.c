@@ -52,6 +52,17 @@ HAL_StatusTypeDef STUSB4531_CheckStatus(I2C_HandleTypeDef *hi2c, STUSB4531_Statu
         status->attached = (cc_status & (1 << STUSB4531_CC_STATUS_ATTACH_STATUS_SHIFT)) ? true : false;
         status->initialized = true;
 
+        /* Decode advertised current from CC Rp resistor value.
+         * Orientation bit selects the active CC pin:
+         *   bit7=0 -> CC1 in bits[1:0], bit7=1 -> CC2 in bits[3:2]
+         * State values: 0=OPEN, 1=Default(900mA), 2=1.5A, 3=3.0A */
+        {
+            static const uint16_t cc_rp_current_ma[4] = {0, 900, 1500, 3000};
+            uint8_t orientation = (cc_status >> STUSB4531_CC_STATUS_PLUG_ORIENTATION_SHIFT) & 0x01;
+            uint8_t active_cc_state = orientation ? ((cc_status >> 2) & 0x03) : (cc_status & 0x03);
+            status->cc_current_ma = cc_rp_current_ma[active_cc_state];
+        }
+
         /* PD contract is active when PE FSM is in SNK_READY or later states */
         hal_status = STUSB4531_ReadReg(hi2c, STUSB4531_PE_FSM_ADD, &pe_fsm);
         if (hal_status == HAL_OK)

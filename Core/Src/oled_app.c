@@ -3,23 +3,50 @@
 #include "ssd1306_fonts.h"
 #include <stdio.h>
 
+#define SECOND_LINE_Y 20
+
 void OLED_App_Init(void)
 {
     ssd1306_Init();
     ssd1306_Fill(0x00);
     ssd1306_SetCursor(0, 0);
     ssd1306_WriteString("STUSB4531", Font_11x18, 0x01);
-    ssd1306_SetCursor(0, 18);
-    ssd1306_WriteString("USB-PD negotiation", Font_7x10, 0x01);
+    ssd1306_SetCursor(0, SECOND_LINE_Y);
+    ssd1306_WriteString("USB-PD init...", Font_7x10, 0x01);
     ssd1306_UpdateScreen();
+}
 
-    uint8_t i;
-    for(i = 0; i < 12; i++) // Short delay before starting (for debugging)
+void OLED_App_ShowNegotiating(uint8_t pe_fsm)
+{
+    const char *state_name;
+    switch (pe_fsm)
     {
-      ssd1306_FillCircle(i*10+10, 30, 1, 0x01);
-      ssd1306_UpdateScreen();
-      HAL_Delay(30);
+        case 0x00: state_name = "PE_INIT";      break;
+        case 0x01: state_name = "SOFT_RESET";   break;
+        case 0x02: state_name = "HARD_RESET";   break;
+        case 0x09: state_name = "SNK_STARTUP";  break;
+        case 0x0A: state_name = "SNK_DISCOVER"; break;
+        case 0x0B: state_name = "SNK_WAIT_CAP"; break;
+        case 0x0C: state_name = "SNK_EVAL_CAP"; break;
+        case 0x0D: state_name = "SNK_SEL_CAP";  break;
+        case 0x0E: state_name = "SNK_SEL_CAP2"; break;
+        case 0x0F: state_name = "SNK_TRANS";    break;
+        case 0x10: state_name = "SNK_READY!";   break;
+        case 0x11: state_name = "SNK_GET_CAP";  break;
+        case 0x12: state_name = "SNK_READY!";   break;
+        default:   state_name = "PE_UNKNOWN";   break;
     }
+
+    char buf[12];
+    ssd1306_Fill(0x00);
+    ssd1306_SetCursor(0, 0);
+    ssd1306_WriteString("STUSB4531", Font_11x18, 0x01);
+    ssd1306_SetCursor(0, SECOND_LINE_Y);
+    ssd1306_WriteString(state_name, Font_7x10, 0x01);
+    /*sprintf(buf, "PE:0x%02X", pe_fsm);
+    ssd1306_SetCursor(0, 22);
+    ssd1306_WriteString(buf, Font_7x10, 0x01);*/
+    ssd1306_UpdateScreen();
 }
 
 void OLED_App_Update(STUSB4531_Status_t *status)
@@ -31,7 +58,7 @@ void OLED_App_Update(STUSB4531_Status_t *status)
     if (!status->initialized)
     {
         ssd1306_SetCursor(0, 0);
-        ssd1306_WriteString("STUSB Init...", Font_7x10, 0x01);
+        ssd1306_WriteString("STUSB Init...", Font_11x18, 0x01);
         ssd1306_UpdateScreen();
         return;
     }
@@ -39,15 +66,33 @@ void OLED_App_Update(STUSB4531_Status_t *status)
     if (!status->attached)
     {
         ssd1306_SetCursor(0, 0);
-        ssd1306_WriteString("No USB-C", Font_7x10, 0x01);
+        ssd1306_WriteString("No USB-C", Font_11x18, 0x01);
+        ssd1306_SetCursor(0, SECOND_LINE_Y);
+        ssd1306_WriteString("using 5V", Font_7x10, 0x01);
         ssd1306_UpdateScreen();
         return;
     }
     
     if (!status->pd_capable)
     {
-        ssd1306_SetCursor(0, 0);
-        ssd1306_WriteString("No USB-PD", Font_7x10, 0x01);
+        if (status->cc_current_ma > 0)
+        {
+            /* Show Rp-advertised current on line 1, label on line 2 */
+            sprintf(buffer, "5V %d.%dA",
+                    status->cc_current_ma / 1000,
+                    (status->cc_current_ma % 1000) / 100);
+            ssd1306_SetCursor(0, 0);
+            ssd1306_WriteString(buffer, Font_11x18, 0x01);
+            ssd1306_SetCursor(0, SECOND_LINE_Y);
+            ssd1306_WriteString("USB-C (no PD)", Font_7x10, 0x01);
+        }
+        else
+        {
+            ssd1306_SetCursor(0, 0);
+            ssd1306_WriteString("No USB-PD", Font_11x18, 0x01);
+            ssd1306_SetCursor(0, SECOND_LINE_Y);
+            ssd1306_WriteString("using 5V", Font_7x10, 0x01);
+        }
         ssd1306_UpdateScreen();
         return;
     }
@@ -56,33 +101,38 @@ void OLED_App_Update(STUSB4531_Status_t *status)
     if (status->epr_ready)
     {
         ssd1306_SetCursor(0, 0);
-        ssd1306_WriteString("EPR ready", Font_7x10, 0x01);
-        ssd1306_SetCursor(0, 11);
-        ssd1306_WriteString("up to 48V (240W)", Font_7x10, 0x01);
-    }
-    else
-    {
-        ssd1306_SetCursor(0, 0);
-        ssd1306_WriteString("Negotiated USB-PD", Font_7x10, 0x01);
+        ssd1306_WriteString("48V EPR", Font_11x18, 0x01);
+        ssd1306_SetCursor(81, 8);
+        ssd1306_WriteString("Ready", Font_7x10, 0x01);
+        ssd1306_SetCursor(0, SECOND_LINE_Y);
+        ssd1306_WriteString("max 240W: Charging", Font_7x10, 0x01);
+        ssd1306_UpdateScreen();
+        return;
     }
     
     // Display negotiated parameters (from actively negotiated PDO)
     if (status->pd_capable && status->negotiated_pdo.voltage_mv > 0)
     {
-        sprintf(buffer, "%dV %dmA",
+        sprintf(buffer, "%dV %d.%dA",
                 status->negotiated_pdo.voltage_mv / 1000,
-                status->negotiated_pdo.current_ma);
-        ssd1306_SetCursor(0, 22);
-        ssd1306_WriteString(buffer, Font_7x10, 0x01);
+                status->negotiated_pdo.current_ma / 1000,
+                (status->negotiated_pdo.current_ma % 1000) / 100);
+        ssd1306_SetCursor(0, 0);
+        ssd1306_WriteString(buffer, Font_11x18, 0x01);
+        ssd1306_SetCursor(0, SECOND_LINE_Y);
+        ssd1306_WriteString("USB-PD ok:Charging", Font_7x10, 0x01);
     }
     else if (status->num_pdos > 0)
     {
         uint8_t sel = status->selected_pdo_index;
-        sprintf(buffer, "%dV %dmA",
+        sprintf(buffer, "%dV %d.%dA",
                 status->pdos[sel].voltage_mv / 1000,
-                status->pdos[sel].current_ma);
-        ssd1306_SetCursor(0, 22);
-        ssd1306_WriteString(buffer, Font_7x10, 0x01);
+                status->pdos[sel].current_ma / 1000,
+                (status->pdos[sel].current_ma % 1000) / 100);
+        ssd1306_SetCursor(0, 0);
+        ssd1306_WriteString(buffer, Font_11x18, 0x01);
+                ssd1306_SetCursor(0, SECOND_LINE_Y);
+        ssd1306_WriteString("USB-PD ok", Font_7x10, 0x01);
     }
     
     ssd1306_UpdateScreen();
