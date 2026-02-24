@@ -154,30 +154,24 @@ HAL_StatusTypeDef STUSB4531_ReadSourcePDOs(I2C_HandleTypeDef *hi2c, STUSB4531_St
     return HAL_OK;
 }
 
+
 /**
-  * @brief Select the highest power PDO
+  * @brief Set selected_pdo_index from the RDO object position reported by STUSB4531
   */
-uint8_t STUSB4531_SelectHighestPowerPDO(STUSB4531_Status_t *status)
+uint8_t STUSB4531_SetSelectedFromRDO(STUSB4531_Status_t *status, uint32_t rdo)
 {
-    if (status->num_pdos == 0)
+    if (rdo != 0 && status->num_pdos > 0)
     {
-        return 0;
-    }
-    
-    uint8_t highest_pdo_index = 0;
-    uint32_t highest_power = 0;
-    
-    for (uint8_t i = 0; i < status->num_pdos; i++)
-    {
-        if (status->pdos[i].power_mw > highest_power)
+        /* Bits [30:28] = object position, 1-indexed (PDO1 = 1, PDO2 = 2, ...) */
+        uint8_t obj_pos = (rdo >> 28) & 0x07;
+        if (obj_pos >= 1 && obj_pos <= status->num_pdos)
         {
-            highest_power = status->pdos[i].power_mw;
-            highest_pdo_index = i;
+            status->selected_pdo_index = obj_pos - 1;
+            return status->selected_pdo_index;
         }
     }
-    
-    status->selected_pdo_index = highest_pdo_index;
-    return highest_pdo_index;
+    /* Fallback: use highest-power PDO if RDO is absent or position is out of range */
+    return 0;
 }
 
 /**

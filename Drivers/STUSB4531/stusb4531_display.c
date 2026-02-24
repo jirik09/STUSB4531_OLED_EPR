@@ -81,7 +81,7 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
                                current_raw, current_raw, current_ma,
                                current_ma / 1000, (current_ma % 1000) / 100);
                         
-                        power_mw = ((uint32_t)voltage_mv * current_ma) / 1000;
+                        /*power_mw = ((uint32_t)voltage_mv * current_ma) / 1000;
                         printf("Calculated Power: %dmW (%d.%dW)\r\n",
                                power_mw, power_mw / 1000, (power_mw % 1000) / 100);
                         
@@ -97,7 +97,7 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
                         printf("Bit 27 (Unconstrained Power): %d\r\n", unconstrained_power);
                         printf("Bit 26 (USB Communications Capable): %d\r\n", usb_comms);
                         printf("Bit 25 (Dual-Role Data): %d\r\n", dual_role_data);
-                        printf("Bits 21-20 (Peak Current): %d\r\n", peak_current);
+                        printf("Bits 21-20 (Peak Current): %d\r\n", peak_current);*/
                         break;
                     }
                         
@@ -105,7 +105,7 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
                     {
                         printf("Battery Supply)\r\n");
                         
-                        max_voltage_raw = (raw_pdo >> 20) & 0x3FF;
+                        /*max_voltage_raw = (raw_pdo >> 20) & 0x3FF;
                         max_voltage_mv = max_voltage_raw * 50;
                         printf("Bits 20-29 (Max Voltage): 0x%03X = %d units × 50mV = %dmV\r\n",
                                max_voltage_raw, max_voltage_raw, max_voltage_mv);
@@ -118,7 +118,7 @@ void STUSB4531_DisplayDetailedPDOs(I2C_HandleTypeDef *hi2c, uint8_t num_pdos, ui
                         max_power_raw = raw_pdo & 0x3FF;
                         max_power_mw = max_power_raw * 250;
                         printf("Bits 0-9 (Max Power): 0x%03X = %d units × 250mW = %dmW\r\n",
-                               max_power_raw, max_power_raw, max_power_mw);
+                               max_power_raw, max_power_raw, max_power_mw);*/
                         break;
                     }
                         

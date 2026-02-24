@@ -12,6 +12,14 @@ void OLED_App_Init(void)
     ssd1306_SetCursor(0, 18);
     ssd1306_WriteString("USB-PD negotiation", Font_7x10, 0x01);
     ssd1306_UpdateScreen();
+
+    uint8_t i;
+    for(i = 0; i < 12; i++) // Short delay before starting (for debugging)
+    {
+      ssd1306_FillCircle(i*10+10, 30, 1, 0x01);
+      ssd1306_UpdateScreen();
+      HAL_Delay(30);
+    }
 }
 
 void OLED_App_Update(STUSB4531_Status_t *status)

@@ -94,10 +94,16 @@ void STUSB4531_ParsePDO(uint32_t raw_pdo, STUSB4531_PDO_t *pdo);
   */
 HAL_StatusTypeDef STUSB4531_ReadSourcePDOs(I2C_HandleTypeDef *hi2c, STUSB4531_Status_t *status);
 
+
 /**
-  * @brief Select the highest power PDO
+  * @brief Set selected_pdo_index from the RDO object position reported by STUSB4531
+  * @param status  Status struct whose selected_pdo_index will be updated
+  * @param rdo     Raw RDO register value (from DPM_RDO)
+  * @retval Index of the selected PDO (0-based), or 0 if RDO is absent/invalid
+  * @note  RDO bits [30:28] carry the 1-indexed object position of the chosen PDO.
+  *        Falls back to highest-power selection when RDO is 0 or out of range.
   */
-uint8_t STUSB4531_SelectHighestPowerPDO(STUSB4531_Status_t *status);
+uint8_t STUSB4531_SetSelectedFromRDO(STUSB4531_Status_t *status, uint32_t rdo);
 
 /**
   * @brief Read all comprehensive status information

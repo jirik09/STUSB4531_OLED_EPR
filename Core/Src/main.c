@@ -120,14 +120,6 @@ int main(void)
 
   OLED_App_Init();
 
-  uint8_t i;
-  for(i = 0; i < 12; i++) // Short delay before starting (for debugging)
-  {
-    ssd1306_FillCircle(i*10+10, 30, 1, 0x01);
-    ssd1306_UpdateScreen();
-    HAL_Delay(50);
-  }
-  
   // Initialize STUSB4531
   printf("STUSB4531: Initializing...\r\n");
   
@@ -252,8 +244,8 @@ int main(void)
 	      // Read the PDOs from DPM_SRC_PDO registers
 	      if (STUSB4531_ReadSourcePDOs(&hi2c1, &stusb_status) == HAL_OK)
 	      {
-	          // Select highest power PDO
-	          STUSB4531_SelectHighestPowerPDO(&stusb_status);
+	          // Use the PDO position the STUSB4531 actually negotiated (from RDO)
+	          STUSB4531_SetSelectedFromRDO(&stusb_status, comp_status.rdo);
 
 	          // Populate negotiated PDO from comprehensive status
 	          if (comp_status.negotiated_pdo != 0)
