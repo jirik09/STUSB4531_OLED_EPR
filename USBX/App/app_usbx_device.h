@@ -41,8 +41,8 @@ extern "C" {
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
-#define UX_DEVICE_APP_MEM_POOL_SIZE         1024
-#define USBX_DEVICE_MEMORY_STACK_SIZE       512
+#define UX_DEVICE_APP_MEM_POOL_SIZE         8192
+#define USBX_DEVICE_MEMORY_STACK_SIZE       8192
 
 /* USER CODE BEGIN EC */
 
@@ -66,6 +66,18 @@ UINT MX_USBX_Device_Init(VOID);
 /* USER CODE END PD */
 
 /* USER CODE BEGIN 1 */
+
+/* USB event flags – set in ISR-safe USBD_ChangeFunction, printed from main loop */
+extern volatile uint32_t usb_event_flags;
+#define USB_EVT_ATTACHED     (1U << 0U)
+#define USB_EVT_REMOVED      (1U << 1U)
+#define USB_EVT_CONNECTED    (1U << 2U)
+#define USB_EVT_DISCONNECTED (1U << 3U)
+#define USB_EVT_SUSPENDED    (1U << 4U)
+#define USB_EVT_RESUMED      (1U << 5U)
+
+/* Call from main loop to print deferred USB state-change events */
+void USB_Print_Events(void);
 
 /* USER CODE END 1 */
 
