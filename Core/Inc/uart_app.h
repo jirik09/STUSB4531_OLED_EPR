@@ -8,5 +8,6 @@ void UART_App_PrintStatus(STUSB4531_Status_t *status);
 void UART_App_PrintComprehensiveStatus(STUSB4531_ComprehensiveStatus_t *comp_status);
 void UART_App_PrintAlert(uint8_t alert_status);
 void UART_App_PrintPDOs(STUSB4531_Status_t *status);
+void UART_App_PrintEPR(STUSB4531_EPR_t *epr, STUSB4531_Status_t *status);
 
 #endif // UART_APP_H

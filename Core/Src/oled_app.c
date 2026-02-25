@@ -102,6 +102,36 @@ void OLED_App_Update(STUSB4531_Status_t *status)
     }
     
     // PD Capable
+    if (status->epr_mode_active)
+    {
+        /* EPR mode is active – find highest EPR PDO power */
+        uint32_t max_power_mw = 0;
+        uint16_t max_v_mv = 0;
+        for (uint8_t i = 0; i < status->num_pdos; i++)
+        {
+            if (status->pdos[i].power_mw > max_power_mw)
+            {
+                max_power_mw = status->pdos[i].power_mw;
+                max_v_mv     = status->pdos[i].voltage_mv;
+            }
+        }
+        {
+            uint8_t p = buf_cat_int(buffer, 0, (int32_t)(max_v_mv / 1000));
+            p = buf_cat_str(buffer, p, "V EPR");
+            buf_cat_str(buffer, p, " ON");
+        }
+        ssd1306_SetCursor(0, 0);
+        ssd1306_WriteString(buffer, Font_11x18, 0x01);
+        ssd1306_SetCursor(0, SECOND_LINE_Y);
+        {
+            uint8_t p = buf_cat_uint(buffer, 0, max_power_mw / 1000);
+            buf_cat_str(buffer, p, "W max  Charging");
+        }
+        ssd1306_WriteString(buffer, Font_7x10, 0x01);
+        ssd1306_UpdateScreen();
+        return;
+    }
+
     if (status->epr_ready)
     {
         ssd1306_SetCursor(0, 0);
