@@ -59,9 +59,7 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 
 /* USER CODE BEGIN Private defines */
-/* Set to 1 after ux_system_initialize() succeeds so SysTick can safely
-   call ux_system_tasks_run() without risking a null-pointer dereference. */
-extern volatile uint8_t usbx_running;
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

@@ -22,8 +22,6 @@
 #include "stm32c0xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "dbg_print.h"  /* print_str uses polling UART – safe to call from fault handlers */
-#include "ux_api.h"     /* ux_system_tasks_run – pumped every 1ms from SysTick */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -86,8 +84,7 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-  /* print_str uses HAL_UART_Transmit (polling) so it works here even with IRQs off */
-  print_str("\r\n*** HARDFAULT – firmware crashed! ***\r\n");
+
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
@@ -132,12 +129,7 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-  /* Pump USBX standalone state machine every 1ms.
-     This ensures EP0 can respond to GET_DESCRIPTOR even when the main loop
-     is blocked on I2C reads or polling UART prints.
-     USBX standalone uses PRIMASK critical sections so this is ISR-safe. */
-  if (usbx_running)
-      ux_system_tasks_run();
+
   /* USER CODE END SysTick_IRQn 1 */
 }
 
@@ -149,15 +141,5 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /* USER CODE BEGIN 1 */
-
-/**
-  * @brief  USB DRD FS global interrupt handler.
-  *         Calls HAL PCD driver which in turn fires USBX DCD callbacks.
-  */
-void USB_DRD_FS_IRQHandler(void)
-{
-    extern PCD_HandleTypeDef hpcd_USB_DRD_FS;
-    HAL_PCD_IRQHandler(&hpcd_USB_DRD_FS);
-}
 
 /* USER CODE END 1 */

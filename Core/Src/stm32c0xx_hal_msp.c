@@ -321,12 +321,7 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef* hpcd)
     /* Peripheral clock enable */
     __HAL_RCC_USB_CLK_ENABLE();
     /* USER CODE BEGIN USB_DRD_FS_MspInit 1 */
-    /* USB IRQ at priority 0 (same as SysTick) so SysTick cannot preempt the
-       USB ISR mid-callback.  With both at 0 they round-robin; neither can
-       pre-empt the other, eliminating the re-entrancy hazard that caused
-       "Device Descriptor Request Failed" in standalone USBX mode. */
-    HAL_NVIC_SetPriority(USB_DRD_FS_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(USB_DRD_FS_IRQn);
+
     /* USER CODE END USB_DRD_FS_MspInit 1 */
 
   }

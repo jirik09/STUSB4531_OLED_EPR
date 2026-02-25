@@ -65,17 +65,6 @@ VOID USBD_CDC_ACM_ParameterChange(VOID *cdc_acm_instance);
 
 /* USER CODE BEGIN 1 */
 
-/* Global CDC ACM instance - valid while host is connected */
-extern UX_SLAVE_CLASS_CDC_ACM *cdc_acm_instance;
-/* Set to 1 by Activate callback, cleared by Deactivate callback */
-extern volatile uint8_t        cdc_connected;
-
-/* Transmit up to 'size' bytes; returns UX_SUCCESS or UX_ERROR */
-UINT CDC_Transmit_FS(uint8_t *data, uint16_t size);
-
-/* Drive the "hello world" one-shot transmit; call from main loop */
-VOID CDC_Tasks_Run(VOID);
-
 /* USER CODE END 1 */
 
 #ifdef __cplusplus

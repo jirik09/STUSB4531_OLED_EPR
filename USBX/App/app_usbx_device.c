@@ -23,9 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "ux_dcd_stm32.h"
-#include "main.h"
-#include "dbg_print.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,20 +56,6 @@ static ULONG cdc_acm_configuration_number;
 static UX_SLAVE_CLASS_CDC_ACM_PARAMETER cdc_acm_parameter;
 
 /* USER CODE BEGIN PV */
-
-/* -----------------------------------------------------------------------
- * USB event flags – set atomically inside USBD_ChangeFunction which may
- * be invoked from USB ISR context.  Never call blocking functions (e.g.
- * print_str / HAL_UART_Transmit) from that context; defer to main loop.
- * USB_Print_Events() reads and clears these flags and prints them safely.
- * ----------------------------------------------------------------------- */
-volatile uint32_t usb_event_flags = 0U;
-#define USB_EVT_ATTACHED     (1U << 0U)
-#define USB_EVT_REMOVED      (1U << 1U)
-#define USB_EVT_CONNECTED    (1U << 2U)
-#define USB_EVT_DISCONNECTED (1U << 3U)
-#define USB_EVT_SUSPENDED    (1U << 4U)
-#define USB_EVT_RESUMED      (1U << 5U)
 
 /* USER CODE END PV */
 
@@ -173,33 +157,6 @@ UINT MX_USBX_Device_Init(VOID)
 
   /* USER CODE BEGIN MX_USBX_Device_Init1 */
 
-  /* Assign PMA (Packet Memory Area) buffers for each USB endpoint.
-     The STM32 USB DRD peripheral requires this mapping after HAL_PCD_Init
-     and before HAL_PCD_Start; without it EP0 has no buffer and Windows
-     fails the Device Descriptor request.
-
-     Layout (single-buffer, 64-byte bulk FS max-packet, 8-byte CMD EP):
-       EP0 OUT (0x00) : 0x0014 – 0x0053  (64 bytes)
-       EP0 IN  (0x80) : 0x0054 – 0x0093  (64 bytes)
-       EP1 IN  (0x81) : 0x0094 – 0x009B  ( 8 bytes, CDC notification)
-       EP3 OUT (0x03) : 0x00D4 – 0x0113  (64 bytes, CDC bulk OUT)
-       EP2 IN  (0x82) : 0x0114 – 0x0153  (64 bytes, CDC bulk IN)   */
-  extern PCD_HandleTypeDef hpcd_USB_DRD_FS;
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, 0x00, PCD_SNG_BUF, 0x14);
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, 0x80, PCD_SNG_BUF, 0x54);
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, 0x81, PCD_SNG_BUF, 0x94);
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, 0x03, PCD_SNG_BUF, 0xD4);
-  HAL_PCDEx_PMAConfig(&hpcd_USB_DRD_FS, 0x82, PCD_SNG_BUF, 0x114);
-
-  /* Link the STM32 HAL PCD driver to USBX device stack.
-     NOTE: HAL_PCD_Start() is intentionally NOT called here.
-     Call it from main() after all slow inits complete so that
-     the host only sees D+ after ux_system_tasks_run() is being pumped. */
-  if (ux_dcd_stm32_initialize(0, (ULONG)&hpcd_USB_DRD_FS) != UX_SUCCESS)
-  {
-    return UX_ERROR;
-  }
-
   /* USER CODE END MX_USBX_Device_Init1 */
 
   return ret;
@@ -247,7 +204,7 @@ ULONG _ux_utility_time_get(VOID)
   ULONG time_tick = 0U;
 
   /* USER CODE BEGIN _ux_utility_time_get */
-  time_tick = (ULONG)HAL_GetTick();
+
   /* USER CODE END _ux_utility_time_get */
 
   return time_tick;
@@ -272,9 +229,7 @@ static UINT USBD_ChangeFunction(ULONG Device_State)
     case UX_DEVICE_ATTACHED:
 
       /* USER CODE BEGIN UX_DEVICE_ATTACHED */
-      /* NOTE: called from USB ISR via HAL_PCD_ResetCallback ->
-         _ux_dcd_stm32_initialize_complete().  Never block here. */
-      usb_event_flags |= USB_EVT_ATTACHED;
+
       /* USER CODE END UX_DEVICE_ATTACHED */
 
       break;
@@ -282,7 +237,7 @@ static UINT USBD_ChangeFunction(ULONG Device_State)
     case UX_DEVICE_REMOVED:
 
       /* USER CODE BEGIN UX_DEVICE_REMOVED */
-      usb_event_flags |= USB_EVT_REMOVED;
+
       /* USER CODE END UX_DEVICE_REMOVED */
 
       break;
@@ -290,7 +245,7 @@ static UINT USBD_ChangeFunction(ULONG Device_State)
     case UX_DCD_STM32_DEVICE_CONNECTED:
 
       /* USER CODE BEGIN UX_DCD_STM32_DEVICE_CONNECTED */
-      usb_event_flags |= USB_EVT_CONNECTED;
+
       /* USER CODE END UX_DCD_STM32_DEVICE_CONNECTED */
 
       break;
@@ -298,7 +253,7 @@ static UINT USBD_ChangeFunction(ULONG Device_State)
     case UX_DCD_STM32_DEVICE_DISCONNECTED:
 
       /* USER CODE BEGIN UX_DCD_STM32_DEVICE_DISCONNECTED */
-      usb_event_flags |= USB_EVT_DISCONNECTED;
+
       /* USER CODE END UX_DCD_STM32_DEVICE_DISCONNECTED */
 
       break;
@@ -306,7 +261,7 @@ static UINT USBD_ChangeFunction(ULONG Device_State)
     case UX_DCD_STM32_DEVICE_SUSPENDED:
 
       /* USER CODE BEGIN UX_DCD_STM32_DEVICE_SUSPENDED */
-      usb_event_flags |= USB_EVT_SUSPENDED;
+
       /* USER CODE END UX_DCD_STM32_DEVICE_SUSPENDED */
 
       break;
@@ -314,7 +269,7 @@ static UINT USBD_ChangeFunction(ULONG Device_State)
     case UX_DCD_STM32_DEVICE_RESUMED:
 
       /* USER CODE BEGIN UX_DCD_STM32_DEVICE_RESUMED */
-      usb_event_flags |= USB_EVT_RESUMED;
+
       /* USER CODE END UX_DCD_STM32_DEVICE_RESUMED */
 
       break;
@@ -322,7 +277,7 @@ static UINT USBD_ChangeFunction(ULONG Device_State)
     case UX_DCD_STM32_SOF_RECEIVED:
 
       /* USER CODE BEGIN UX_DCD_STM32_SOF_RECEIVED */
-      /* SOF fires every 1ms - too noisy to print */
+
       /* USER CODE END UX_DCD_STM32_SOF_RECEIVED */
 
       break;
@@ -344,28 +299,5 @@ static UINT USBD_ChangeFunction(ULONG Device_State)
   return status;
 }
 /* USER CODE BEGIN 1 */
-
-/**
-  * @brief  USB_Print_Events
-  *         Print any pending USB state-change events.  Call from the main loop
-  *         (NOT from an ISR) because it uses blocking UART via print_str.
-  *         All USBD_ChangeFunction callbacks set flags rather than printing
-  *         directly, because some are invoked from the USB ISR context.
-  */
-void USB_Print_Events(void)
-{
-    /* Snapshot and clear atomically (PRIMASK) */
-    __disable_irq();
-    uint32_t flags = usb_event_flags;
-    usb_event_flags = 0U;
-    __enable_irq();
-
-    if (flags & USB_EVT_ATTACHED)     print_str("USB: ATTACHED (bus reset processed)\r\n");
-    if (flags & USB_EVT_REMOVED)      print_str("USB: REMOVED\r\n");
-    if (flags & USB_EVT_CONNECTED)    print_str("USB: CONNECTED (VBUS detected)\r\n");
-    if (flags & USB_EVT_DISCONNECTED) print_str("USB: DISCONNECTED\r\n");
-    if (flags & USB_EVT_SUSPENDED)    print_str("USB: SUSPENDED\r\n");
-    if (flags & USB_EVT_RESUMED)      print_str("USB: RESUMED\r\n");
-}
 
 /* USER CODE END 1 */

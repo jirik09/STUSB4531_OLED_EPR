@@ -27,7 +27,6 @@
 #include "oled_app.h"
 #include "uart_app.h"
 #include "dbg_print.h"
-#include "app_usbx_device.h"  /* MX_USBX_Device_Init, ux_system_tasks_run */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,7 +56,6 @@ PCD_HandleTypeDef hpcd_USB_DRD_FS;
 /* USER CODE BEGIN PV */
 STUSB4531_Status_t stusb_status = {0};
 volatile uint8_t stusb_alert_flag = 0;  // Flag set by interrupt
-volatile uint8_t usbx_running = 0U;     // Set after ux_system_initialize; guards SysTick pump
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -74,20 +72,6 @@ static void MX_ADC1_Init(void);
 /* USER CODE BEGIN 0 */
 
 /* dbg_print is initialised in main() via dbg_print_init(&huart2) */
-
-/**
- * @brief  Drop-in replacement for HAL_Delay that keeps pumping the USBX
- *         standalone task engine every 1 ms so USB enumeration succeeds
- *         even during long startup delays.
- */
-static void USB_Delay(uint32_t ms)
-{
-    uint32_t start = HAL_GetTick();
-    while ((HAL_GetTick() - start) < ms)
-    {
-        ux_system_tasks_run();
-    }
-}
 
 /* USER CODE END 0 */
 
@@ -115,18 +99,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  /* Enable CRS (Clock Recovery System) to trim HSI48 using USB SOF as reference.
-     Without CRS the HSI48 tolerance is ±1.5% which exceeds the USB FS spec of ±0.25%.
-     CRS locks the HSI48 to the host SOF signal, meeting the spec after the first SOF. */
-  __HAL_RCC_CRS_CLK_ENABLE();
-  RCC_CRSInitTypeDef RCC_CRSInitStruct = {0};
-  RCC_CRSInitStruct.Prescaler             = RCC_CRS_SYNC_DIV1;
-  RCC_CRSInitStruct.Source                = RCC_CRS_SYNC_SOURCE_USB;
-  RCC_CRSInitStruct.Polarity              = RCC_CRS_SYNC_POLARITY_RISING;
-  RCC_CRSInitStruct.ReloadValue           = __HAL_RCC_CRS_RELOADVALUE_CALCULATE(48000000, 1000);
-  RCC_CRSInitStruct.ErrorLimitValue       = 34;
-  RCC_CRSInitStruct.HSI48CalibrationValue = 32;
-  HAL_RCCEx_CRSConfig(&RCC_CRSInitStruct);
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -141,43 +114,30 @@ int main(void)
   dbg_print_init(&huart2);
   UART_App_Init();
 
-  /* Initialize USBX device stack (must precede HAL_PCD_Start).
-     Return value is checked here so any allocation failure is visible on UART. */
-  uint8_t usbx_ok = 0U;
-  if (MX_USBX_Device_Init() == UX_SUCCESS)
-  {
-      usbx_ok = 1U;      usbx_running = 1U;  /* allow SysTick to start pumping ux_system_tasks_run() */      print_str("USBX: init OK ok 2\r\n");
-  }
-  else
-  {
-      print_str("USBX: init FAILED - check UX_SLAVE_REQUEST_DATA_MAX_LENGTH / pool size\r\n");
-  }
-
-  USB_Delay(100);
   OLED_App_Init();
-  USB_Delay(500);
+  HAL_Delay(500);
 
   // Initialize STUSB4531
-  print_str("Initializing...\r\n");
+  print_str("STUSB4531: Initializing...\r\n");
   
   HAL_StatusTypeDef init_status = STUSB4531_Init(&hi2c1);
   if (init_status == HAL_OK)
   {
       stusb_status.initialized = true;
-      print_str("Initialization OK\r\n");
+      print_str("STUSB4531: Initialization OK\r\n");
       
       // Read and display device ID
       uint8_t device_id = 0xFF;
       if (STUSB4531_ReadDeviceID(&hi2c1, &device_id) == HAL_OK)
       {
-          print_str("Device ID = 0x"); print_hex8(device_id); print_nl();
+          print_str("STUSB4531: Device ID = 0x"); print_hex8(device_id); print_nl();
       }
       
       // Read initial alert status
       uint8_t initial_alert;
       if (STUSB4531_ReadAlertStatus(&hi2c1, &initial_alert) == HAL_OK)
       {
-          print_str("Initial Alert Status = 0x"); print_hex8(initial_alert); print_nl();
+          print_str("STUSB4531: Initial Alert Status = 0x"); print_hex8(initial_alert); print_nl();
           if (initial_alert != 0)
           {
               print_str("  Clearing initial alerts...\r\n");
@@ -185,7 +145,7 @@ int main(void)
               if (clear_status == HAL_OK)
               {
                   // Wait a bit and read again to verify
-                  USB_Delay(10);
+                  HAL_Delay(10);
                   uint8_t verify_alert;
                   if (STUSB4531_ReadAlertStatus(&hi2c1, &verify_alert) == HAL_OK)
                   {
@@ -247,26 +207,14 @@ int main(void)
           if (pe_fsm >= 0x10)
               break;
 
-          USB_Delay(200U);
+          HAL_Delay(200U);
       }
 
       if (HAL_GetTick() >= timeout_ms)
           print_str("STUSB4531: Negotiation timeout - continuing\r\n");
   }
 
-  USB_Delay(500);  // Short delay before entering main loop
-
-  /* All slow inits done – now connect USB D+ so the host enumerates
-     while ux_system_tasks_run() is being pumped in USB_Delay() */
-  if (usbx_ok)
-  {
-      HAL_PCD_Start(&hpcd_USB_DRD_FS);
-      print_str("USB: D+ raised, enumeration started ok\r\n");
-  }
-  else
-  {
-      print_str("USB: D+ NOT raised (USBX init failed)\r\n");
-  }
+  HAL_Delay(500);  // Short delay before entering main loop
 
   /* USER CODE END 2 */
 
@@ -371,29 +319,11 @@ int main(void)
 	  }
 	  
 	  OLED_App_Update(&stusb_status);
-
+	  
+	  HAL_Delay(500); // Short delay for loop (was 2000ms)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    /* Print any deferred USB state-change events (flags set in ISR context) */
-    USB_Print_Events();
-
-    /* Run CDC state machine; also pumps ux_system_tasks_run() via USB_Delay */
-    CDC_Tasks_Run();
-
-    /* USB_Delay calls ux_system_tasks_run() every iteration so USBX is
-       serviced from the main-loop context in addition to SysTick. */
-    USB_Delay(500);
-
-    /* Periodic "alive" message over USB CDC every 5 s */
-    {
-        static uint32_t last_alive_tick = 0U;
-        if (cdc_connected && (HAL_GetTick() - last_alive_tick >= 1000U))
-        {
-            last_alive_tick = HAL_GetTick();
-            CDC_Transmit_FS((uint8_t *)"alive\r\n", 7U);
-        }
-    }
   }
   /* USER CODE END 3 */
 }

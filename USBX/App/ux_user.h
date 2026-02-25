@@ -167,12 +167,6 @@
    USBX.  */
 
 #define UX_MAX_SLAVE_CLASS_DRIVER    1
-#define UX_MAX_SLAVE_INTERFACES       3
-#define UX_MAX_SLAVE_ENDPOINTS        4
-#define UX_MAX_HCD                    0
-#define UX_MAX_DEVICES                1
-#define UX_MAX_CLASSES                1
-#define UX_MAX_CLASS_DRIVER           1
 
 /* Defined, this value represents the number of different host controllers available in the system.
    For USB 1.1 support, this value will usually be 1. For USB 2.0 support, this value can be more
@@ -259,10 +253,7 @@
    is 2048 bytes but can be reduced in memory constrained environments. For cd-rom support in the storage
    class, this value cannot be less than 2048.  */
 
-/* Set to 512 to match STM32 CDC-ACM reference project.
-   Default 2048 × 3 endpoints = 6144 bytes just for EP buffers, which exhausts the 8 KB USBX pool
-   before USBX can allocate its internal structs, causing ux_device_stack_initialize() to fail. */
-#define UX_SLAVE_REQUEST_DATA_MAX_LENGTH                    512
+/* #define UX_SLAVE_REQUEST_DATA_MAX_LENGTH                 2048 */
 
 /* Defined, this enables processing of Get String Descriptor requests with zero Language ID.
    The first language ID in the language ID framework will be used if the request has a zero
