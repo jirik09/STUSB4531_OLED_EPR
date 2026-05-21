@@ -45,4 +45,14 @@ HAL_StatusTypeDef STUSB4531_ReadReg(I2C_HandleTypeDef *hi2c, uint8_t reg, uint8_
   */
 HAL_StatusTypeDef STUSB4531_ReadRegs(I2C_HandleTypeDef *hi2c, uint8_t reg, uint8_t *data, uint16_t len);
 
+/**
+  * @brief Write multiple bytes to STUSB4531 registers
+  * @param hi2c: I2C handle
+  * @param reg: Starting register address
+  * @param data: Pointer to data to write
+  * @param len: Number of bytes to write
+  * @return HAL status
+  */
+HAL_StatusTypeDef STUSB4531_WriteRegs(I2C_HandleTypeDef *hi2c, uint8_t reg, const uint8_t *data, uint16_t len);
+
 #endif /* STUSB4531_COMM_H */

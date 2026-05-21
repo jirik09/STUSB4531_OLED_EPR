@@ -175,3 +175,118 @@ void UART_App_PrintPDOs(STUSB4531_Status_t *status)
     print_str(" with "); print_uint(status->pdos[status->selected_pdo_index].power_mw);
     print_str("mW\r\n");
 }
+
+void UART_App_PrintEPR(STUSB4531_EPR_t *epr, STUSB4531_Status_t *status)
+{
+    print_str("\r\n========== EPR NEGOTIATION RESULT ==========\r\n");
+
+    /* Source_Capabilities_Extended */
+    if (epr->src_cap_ext_valid)
+    {
+        print_str("Source_Capabilities_Extended received:\r\n");
+        print_str("  VID: 0x"); print_hex_n(epr->src_cap_ext.vid, 4); print_nl();
+        print_str("  PID: 0x"); print_hex_n(epr->src_cap_ext.pid, 4); print_nl();
+        if (epr->src_cap_ext.src_pdp_w > 0)
+        {
+            print_str("  Source PDP: "); print_number(epr->src_cap_ext.src_pdp_w);
+            print_str(" W\r\n");
+        }
+        if (epr->src_cap_ext.src_max_pdp_w > 0)
+        {
+            print_str("  Source Max PDP (EPR): "); print_number(epr->src_cap_ext.src_max_pdp_w);
+            print_str(" W\r\n");
+        }
+        if (epr->src_cap_ext.source_inputs != 0)
+        {
+            print_str("  Source Inputs: 0x"); print_hex8(epr->src_cap_ext.source_inputs);
+            print_nl();
+        }
+    }
+    else
+    {
+        print_str("Source_Capabilities_Extended: not received / not available\r\n");
+    }
+
+    /* EPR_Mode result */
+    if (epr->epr_mode_active)
+    {
+        print_str("EPR_Mode: ACKED -- EPR mode active!\r\n");
+
+        /* Print EPR PDOs (all PDOs after entering EPR mode) */
+        print_str("EPR Source PDOs ("); print_number(status->num_pdos); print_str(" total):\r\n");
+        for (uint8_t i = 0; i < status->num_pdos; i++)
+        {
+            STUSB4531_PDO_t *p = &status->pdos[i];
+            print_str("  PDO "); print_number(i + 1); print_str(": raw=0x");
+            print_hex32(p->raw); print_str("  ");
+
+            switch (p->type)
+            {
+                case PDO_TYPE_FIXED:
+                    print_str("Fixed ");
+                    print_number(p->voltage_mv / 1000); print_str(".");
+                    print_number((p->voltage_mv % 1000) / 100); print_str("V @ ");
+                    print_number(p->current_ma / 1000); print_str(".");
+                    print_number((p->current_ma % 1000) / 100); print_str("A (");
+                    print_uint(p->power_mw); print_str("mW)");
+                    /* Flag EPR mode capable bit on PDO1 */
+                    if (i == 0 && (p->raw & (1u << 23)))
+                        print_str(" [EPR capable]");
+                    break;
+
+                case PDO_TYPE_VARIABLE:
+                    print_str("Variable ");
+                    print_number(p->min_voltage_mv / 1000); print_str(".");
+                    print_number((p->min_voltage_mv % 1000) / 100); print_str("V-");
+                    print_number(p->voltage_mv / 1000); print_str(".");
+                    print_number((p->voltage_mv % 1000) / 100); print_str("V @ ");
+                    print_number(p->current_ma / 1000); print_str(".");
+                    print_number((p->current_ma % 1000) / 100); print_str("A");
+                    break;
+
+                case PDO_TYPE_BATTERY:
+                    print_str("Battery ");
+                    print_number(p->voltage_mv / 1000); print_str("V max (");
+                    print_uint(p->power_mw); print_str("mW)");
+                    break;
+
+                case PDO_TYPE_APDO:
+                    if (p->apdo_subtype == APDO_SUBTYPE_EPR_AVS)
+                    {
+                        print_str("EPR AVS ");
+                        print_number(p->min_voltage_mv / 1000); print_str(".");
+                        print_number((p->min_voltage_mv % 1000) / 100); print_str("V-");
+                        print_number(p->voltage_mv / 1000); print_str(".");
+                        print_number((p->voltage_mv % 1000) / 100); print_str("V (");
+                        print_uint(p->power_mw / 1000); print_str("W PDP)");
+                    }
+                    else
+                    {
+                        print_str("PPS ");
+                        print_number(p->min_voltage_mv / 1000); print_str(".");
+                        print_number((p->min_voltage_mv % 1000) / 100); print_str("V-");
+                        print_number(p->voltage_mv / 1000); print_str(".");
+                        print_number((p->voltage_mv % 1000) / 100); print_str("V @ ");
+                        print_number(p->current_ma / 1000); print_str(".");
+                        print_number((p->current_ma % 1000) / 100); print_str("A");
+                    }
+                    break;
+
+                default:
+                    print_str("Unknown type");
+                    break;
+            }
+            print_nl();
+        }
+    }
+    else if (epr->epr_rejected)
+    {
+        print_str("EPR_Mode: REJECTED by source\r\n");
+    }
+    else
+    {
+        print_str("EPR_Mode: no response (source may not support EPR)\r\n");
+    }
+
+    print_str("============================================\r\n");
+}

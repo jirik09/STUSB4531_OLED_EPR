@@ -55,6 +55,7 @@ PCD_HandleTypeDef hpcd_USB_DRD_FS;
 
 /* USER CODE BEGIN PV */
 STUSB4531_Status_t stusb_status = {0};
+STUSB4531_EPR_t    stusb_epr    = {0};
 volatile uint8_t stusb_alert_flag = 0;  // Flag set by interrupt
 /* USER CODE END PV */
 
@@ -132,6 +133,13 @@ int main(void)
       {
           print_str("STUSB4531: Device ID = 0x"); print_hex8(device_id); print_nl();
       }
+
+      // Configure EPR sink capability (240 W max) before PD negotiation starts
+      print_str("STUSB4531: Configuring EPR sink capability (240 W)...\r\n");
+      if (STUSB4531_ConfigureEPRSink(&hi2c1) == HAL_OK)
+          print_str("STUSB4531: EPR sink configured OK\r\n");
+      else
+          print_str("STUSB4531: EPR sink config failed (non-fatal)\r\n");
       
       // Read initial alert status
       uint8_t initial_alert;
@@ -214,7 +222,28 @@ int main(void)
           print_str("STUSB4531: Negotiation timeout - continuing\r\n");
   }
 
-  HAL_Delay(500);  // Short delay before entering main loop
+  HAL_Delay(500);  // Short delay before EPR sequence
+
+  /* --- EPR sequence (only when source advertises EPR capability) --- */
+  {
+      /* Quickly read PDOs to check EPR capability bit in PDO1 */
+      STUSB4531_CheckStatus(&hi2c1, &stusb_status);
+      STUSB4531_ReadSourcePDOs(&hi2c1, &stusb_status);
+
+      if (stusb_status.attached && stusb_status.pd_capable && stusb_status.epr_ready)
+      {
+          print_str("\r\nSource is EPR capable (PDO1 bit 23 set) -- starting EPR sequence\r\n");
+          HAL_StatusTypeDef epr_status = STUSB4531_RunEPRSequence(&hi2c1, &stusb_status, &stusb_epr);
+          print_str("EPR sequence returned status="); print_number(epr_status); print_nl();
+          UART_App_PrintEPR(&stusb_epr, &stusb_status);
+      }
+      else
+      {
+          print_str("Source does NOT advertise EPR capability (PDO1 bit 23 = 0) -- skipping EPR\r\n");
+      }
+  }
+
+  HAL_Delay(200);  // Short delay before entering main loop
 
   /* USER CODE END 2 */
 

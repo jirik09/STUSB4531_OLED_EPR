@@ -31,3 +31,11 @@ HAL_StatusTypeDef STUSB4531_ReadRegs(I2C_HandleTypeDef *hi2c, uint8_t reg, uint8
 {
     return HAL_I2C_Mem_Read(hi2c, STUSB4531_I2C_ADDRESS, reg, I2C_MEMADD_SIZE_8BIT, data, len, I2C_TIMEOUT);
 }
+
+/**
+  * @brief Write multiple bytes to STUSB4531 registers
+  */
+HAL_StatusTypeDef STUSB4531_WriteRegs(I2C_HandleTypeDef *hi2c, uint8_t reg, const uint8_t *data, uint16_t len)
+{
+    return HAL_I2C_Mem_Write(hi2c, STUSB4531_I2C_ADDRESS, reg, I2C_MEMADD_SIZE_8BIT, (uint8_t *)data, len, I2C_TIMEOUT);
+}
